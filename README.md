@@ -1,82 +1,51 @@
-# PlaygroundsDev
+# Phoenix Agent (Nx)
 
-<a alt="Nx logo" href="https://nx.dev" target="_blank" rel="noreferrer"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-logo.png" width="45"></a>
+Nx monorepo: **api** (NestJS + Fastify) and **chat** (React + Vite). The API runs the agent (Gemini, Claude Code, OpenAI Codex, or mock); the chat app is the UI.
 
-✨ Your new, shiny [Nx workspace](https://nx.dev) is almost ready ✨.
+## Run API + Chat
 
-[Learn more about this workspace setup and its capabilities](https://nx.dev/getting-started/tutorials/react-monorepo-tutorial?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects) or run `npx nx graph` to visually explore what was created. Now, let's get you up to speed!
+1. **Start the API** (port 3000):
 
-## Finish your CI setup
+   ```sh
+   npx nx serve api
+   ```
 
-[Click here to finish setting up your workspace!](https://cloud.nx.app/connect/hUCiowSgmY)
+   Set `AGENT_PROVIDER=mock` if you don’t have a provider CLI installed:
 
+   ```sh
+   AGENT_PROVIDER=mock npx nx serve api
+   ```
 
-## Run tasks
+2. **Start the chat app** (port 4200):
 
-To run the dev server for your app, use:
+   ```sh
+   npx nx serve chat
+   ```
 
-```sh
-npx nx serve chat
-```
+   With the default Vite proxy, the chat app will use `http://localhost:3000` for `/api` and `/ws`. If the API runs on another host/port, set:
 
-To create a production bundle:
+   ```sh
+   VITE_API_URL=http://localhost:3000
+   ```
 
-```sh
-npx nx build chat
-```
+3. Open **http://localhost:4200**. If `AGENT_PASSWORD` is set, log in with that password first, then use the chat.
 
-To see all available targets to run for a project, run:
+## Environment
 
-```sh
-npx nx show project chat
-```
+Copy `.env.example` to `.env` and adjust. Main variables:
 
-These targets are either [inferred automatically](https://nx.dev/concepts/inferred-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) or defined in the `project.json` or `package.json` files.
+- **API:** `PORT`, `AGENT_PASSWORD`, `AGENT_PROVIDER` (mock, gemini, claude-code, openai-codex, opencodex), `MODEL_OPTIONS`, `DATA_DIR`, `SYSTEM_PROMPT_PATH`
+- **Chat:** `VITE_API_URL` (only if the API is not on the same origin or not proxied)
 
-[More about running tasks in the docs &raquo;](https://nx.dev/features/run-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+## Project layout
 
-## Add new projects
+- `apps/api` – NestJS API, WebSocket at `/ws`, REST under `/api`
+- `apps/chat` – React chat UI (login, chat, auth modal, model selector)
+- `docs/API.md` – REST and WebSocket contract
+- `old-app/` – Original Express app (kept for reference until migration is verified)
 
-While you could add new projects to your workspace manually, you might want to leverage [Nx plugins](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) and their [code generation](https://nx.dev/features/generate-code?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) feature.
+## Tasks
 
-Use the plugin's generator to create new projects.
-
-To generate a new application, use:
-
-```sh
-npx nx g @nx/react:app demo
-```
-
-To generate a new library, use:
-
-```sh
-npx nx g @nx/react:lib mylib
-```
-
-You can use `npx nx list` to get a list of installed plugins. Then, run `npx nx list <plugin-name>` to learn about more specific capabilities of a particular plugin. Alternatively, [install Nx Console](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) to browse plugins and generators in your IDE.
-
-[Learn more about Nx plugins &raquo;](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) | [Browse the plugin registry &raquo;](https://nx.dev/plugin-registry?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-
-[Learn more about Nx on CI](https://nx.dev/ci/intro/ci-with-nx#ready-get-started-with-your-provider?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Install Nx Console
-
-Nx Console is an editor extension that enriches your developer experience. It lets you run tasks, generate code, and improves code autocompletion in your IDE. It is available for VSCode and IntelliJ.
-
-[Install Nx Console &raquo;](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Useful links
-
-Learn more:
-
-- [Learn more about this workspace setup](https://nx.dev/getting-started/tutorials/react-monorepo-tutorial?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects)
-- [Learn about Nx on CI](https://nx.dev/ci/intro/ci-with-nx?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Releasing Packages with Nx release](https://nx.dev/features/manage-releases?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [What are Nx plugins?](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-And join the Nx community:
-- [Discord](https://go.nx.dev/community)
-- [Follow us on X](https://twitter.com/nxdevtools) or [LinkedIn](https://www.linkedin.com/company/nrwl)
-- [Our Youtube channel](https://www.youtube.com/@nxdevtools)
-- [Our blog](https://nx.dev/blog?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+- `npx nx serve api` – run API
+- `npx nx serve chat` – run chat
+- `npx nx run-many -t lint test build typecheck e2e` – CI
