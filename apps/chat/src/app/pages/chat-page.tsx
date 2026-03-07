@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AuthModal } from '../chat/auth-modal';
 import { MessageList, type ChatMessage } from '../chat/message-list';
 import { ModelSelector } from '../chat/model-selector';
 import { CHAT_STATES } from '../chat/chat-state';
@@ -107,8 +108,11 @@ export function ChatPage() {
   const {
     state,
     errorMessage,
+    authModal,
     send,
     startAuth,
+    cancelAuth,
+    submitAuthCode,
     reauthenticate,
     logout,
     dismissError,
@@ -178,8 +182,18 @@ export function ChatPage() {
   const showModelSelector =
     state === CHAT_STATES.AUTHENTICATED || state === CHAT_STATES.AWAITING_RESPONSE;
 
+  const showAuthModal =
+    state === CHAT_STATES.AUTH_PENDING &&
+    (authModal.authUrl || authModal.deviceCode || authModal.isManualToken);
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-800 text-slate-200">
+      <AuthModal
+        open={showAuthModal}
+        authModal={authModal}
+        onClose={cancelAuth}
+        onSubmitCode={submitAuthCode}
+      />
       <header className="flex items-center justify-between p-4 border-b border-slate-700 flex-wrap gap-2">
         <div>
           <h1 className="text-lg font-semibold">AI Assistant</h1>
