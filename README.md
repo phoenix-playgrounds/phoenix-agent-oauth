@@ -1,111 +1,82 @@
-# Phoenix Agent
+# PlaygroundsDev
 
-A multi-provider AI agent that runs as a standalone container with a built-in chat UI. Authenticates via OAuth and communicates with AI providers through CLI wrappers.
+<a alt="Nx logo" href="https://nx.dev" target="_blank" rel="noreferrer"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-logo.png" width="45"></a>
 
-## Chat UI
+✨ Your new, shiny [Nx workspace](https://nx.dev) is almost ready ✨.
 
-The agent ships with a built-in web-based chat interface served on port `3100` (configurable via `CHAT_PORT`). Open `http://localhost:3100` in a browser to interact with the agent directly — no Rails backend required.
+[Learn more about this workspace setup and its capabilities](https://nx.dev/getting-started/tutorials/react-monorepo-tutorial?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects) or run `npx nx graph` to visually explore what was created. Now, let's get you up to speed!
 
-The chat supports:
-- OAuth authentication flow (provider-specific)
-- Real-time messaging via WebSocket
-- Single-session enforcement (one active user at a time)
-- Auto-reconnect on connection drops
+## Finish your CI setup
 
-## Supported Providers
-
-| Provider | `AGENT_PROVIDER` value | Status |
-|---|---|---|
-| Gemini CLI | `gemini` (default) | ✅ Fully implemented |
-| OpenAI Codex | `openai_codex` | ✅ Fully implemented |
-| Claude Code | `claude_code` | ✅ Implemented (requires dbus + gnome-keyring in Docker) |
-| OpenCode | `opencode` | 🚧 Stub |
-| Mock | `mock` | ✅ For testing (instant success, no real CLI calls) |
-
-## Claude Code — Implementation Notes
-
-Claude Code CLI requires special handling in Docker compared to Gemini and Codex:
-
-**Authentication:** The `claude` CLI uses browser-redirect OAuth (no device code flow). In Docker, the agent captures the auth URL from stdout, sends it to the user, and when the user's browser redirect fails (pointing to container's localhost), the user copies the **full redirect URL** from their browser's address bar. The agent then forwards this URL to the CLI's local callback server inside the container via HTTP GET.
-
-**Credential storage:** Claude Code uses `libsecret` (gnome-keyring) on Linux. The Docker image includes `dbus` and `gnome-keyring`, and `bin/start.sh` initializes them before the Node.js agent starts.
-
-**Prompt execution:** Uses `claude -p "prompt" --dangerously-skip-permissions` with `--add-dir` for each repository directory under `/app/playground`.
-
-**User experience difference:** Instead of copying a short auth code (like Gemini/Codex), the user copies a full localhost URL from their browser address bar. The API contract (`submit_auth_code`) remains unchanged — the agent handles the URL internally.
+[Click here to finish setting up your workspace!](https://cloud.nx.app/connect/hUCiowSgmY)
 
 
-## Environment Variables
+## Run tasks
 
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `CHAT_PORT` | No | `3100` | Port for the built-in chat web server |
-| `AGENT_PROVIDER` | No | `gemini` | Which AI CLI provider to use (set to `mock` for testing) |
+To run the dev server for your app, use:
 
-## Architecture
-
-```
-src/
-├── index.mjs              # Entrypoint, graceful shutdown
-├── agent.mjs              # Creates orchestrator + starts chat server
-├── server.mjs             # Express HTTP + WebSocket server
-├── websocket.mjs          # Orchestrator (wires events to strategy)
-├── public/                # Chat UI (served as static files)
-│   ├── index.html         # Chat page
-│   ├── styles.css         # Dark theme CSS
-│   └── chat.js            # WebSocket client + state machine
-└── strategies/
-    ├── base.mjs           # Abstract interface
-    ├── index.mjs          # Strategy resolver (reads env vars)
-    ├── gemini.mjs         # Gemini CLI implementation
-    ├── openai_codex.mjs   # OpenAI Codex CLI implementation
-    ├── claude_code.mjs    # Claude Code CLI implementation
-    ├── mock.mjs           # Mock provider (for testing)
-    └── opencode.mjs       # Stub
-
-bin/
-└── start.sh               # Entrypoint (conditionally starts dbus/gnome-keyring)
+```sh
+npx nx serve chat
 ```
 
-## Quick Start
+To create a production bundle:
 
-```bash
-# Run with Docker Compose (uses mock provider by default in dev)
-docker compose up --build
-
-# Open the chat UI
-open http://localhost:3100
+```sh
+npx nx build chat
 ```
 
-## Testing
+To see all available targets to run for a project, run:
 
-- Run unit tests: `npm test`
-- Run integration tests: `node tests/integration.mjs`
-- Run linter: `npm run lint`
+```sh
+npx nx show project chat
+```
 
-Integration tests use the `mock` provider and verify the full WebSocket flow (auth status check → chat message → response).
+These targets are either [inferred automatically](https://nx.dev/concepts/inferred-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) or defined in the `project.json` or `package.json` files.
 
-## WebSocket Protocol
+[More about running tasks in the docs &raquo;](https://nx.dev/features/run-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
 
-The chat UI communicates with the agent over a plain JSON WebSocket at `/ws`.
+## Add new projects
 
-### Client → Agent
+While you could add new projects to your workspace manually, you might want to leverage [Nx plugins](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) and their [code generation](https://nx.dev/features/generate-code?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) feature.
 
-| Action | Payload | Description |
-|---|---|---|
-| `check_auth_status` | — | Request current auth status |
-| `initiate_auth` | — | Start OAuth flow |
-| `submit_auth_code` | `code` (string) | Submit the authorization code |
-| `cancel_auth` | — | Cancel current auth process |
-| `reauthenticate` | — | Clear credentials and restart auth |
-| `send_chat_message` | `text` (string) | Send a prompt to the AI provider |
+Use the plugin's generator to create new projects.
 
-### Agent → Client
+To generate a new application, use:
 
-| Event Type | Payload | Description |
-|---|---|---|
-| `auth_status` | `status`: "authenticated" \| "unauthenticated" | Current auth status |
-| `auth_url_generated` | `url` (string) | OAuth URL to visit |
-| `auth_success` | — | Authentication succeeded |
-| `chat_message_in` | `text` (string) | AI response to a prompt |
-| `error` | `message` (string) | Error message |
+```sh
+npx nx g @nx/react:app demo
+```
+
+To generate a new library, use:
+
+```sh
+npx nx g @nx/react:lib mylib
+```
+
+You can use `npx nx list` to get a list of installed plugins. Then, run `npx nx list <plugin-name>` to learn about more specific capabilities of a particular plugin. Alternatively, [install Nx Console](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) to browse plugins and generators in your IDE.
+
+[Learn more about Nx plugins &raquo;](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) | [Browse the plugin registry &raquo;](https://nx.dev/plugin-registry?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+
+
+[Learn more about Nx on CI](https://nx.dev/ci/intro/ci-with-nx#ready-get-started-with-your-provider?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+
+## Install Nx Console
+
+Nx Console is an editor extension that enriches your developer experience. It lets you run tasks, generate code, and improves code autocompletion in your IDE. It is available for VSCode and IntelliJ.
+
+[Install Nx Console &raquo;](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+
+## Useful links
+
+Learn more:
+
+- [Learn more about this workspace setup](https://nx.dev/getting-started/tutorials/react-monorepo-tutorial?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects)
+- [Learn about Nx on CI](https://nx.dev/ci/intro/ci-with-nx?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+- [Releasing Packages with Nx release](https://nx.dev/features/manage-releases?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+- [What are Nx plugins?](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+
+And join the Nx community:
+- [Discord](https://go.nx.dev/community)
+- [Follow us on X](https://twitter.com/nxdevtools) or [LinkedIn](https://www.linkedin.com/company/nrwl)
+- [Our Youtube channel](https://www.youtube.com/@nxdevtools)
+- [Our blog](https://nx.dev/blog?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
