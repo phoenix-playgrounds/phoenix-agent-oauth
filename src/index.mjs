@@ -1,4 +1,11 @@
 import { startAgent } from "./agent.mjs";
+import { loadInjectedCredentials } from "./credential_injector.mjs";
+
+// Pre-populate credential files from stored Agent (if AGENT_CREDENTIALS_JSON is set)
+const injected = loadInjectedCredentials();
+if (injected) {
+    console.log("[STARTUP] Stored agent credentials loaded — skipping manual auth.");
+}
 
 console.log("Starting Phoenix Agent...");
 startAgent();
