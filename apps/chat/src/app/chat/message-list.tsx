@@ -1,10 +1,12 @@
 import { marked } from 'marked';
+import { getApiUrl, getAuthTokenForRequest } from '../api-url';
 
 export interface ChatMessage {
   id?: string;
   role: string;
   body: string;
   created_at: string;
+  imageUrls?: string[];
 }
 
 function formatTime(iso: string): string {
@@ -30,6 +32,13 @@ function escapeHtml(str: string): string {
   const div = document.createElement('div');
   div.textContent = str;
   return div.innerHTML;
+}
+
+function getUploadSrc(filename: string): string {
+  const base = getApiUrl();
+  const path = base ? `${base}/api/uploads/${encodeURIComponent(filename)}` : `/api/uploads/${encodeURIComponent(filename)}`;
+  const token = getAuthTokenForRequest();
+  return token ? `${path}?token=${encodeURIComponent(token)}` : path;
 }
 
 export function MessageList({
@@ -64,7 +73,28 @@ export function MessageList({
               }`}
             >
               {msg.role === 'user' ? (
-                <span className="whitespace-pre-wrap">{msg.body}</span>
+                <>
+                  {msg.imageUrls?.length ? (
+                    <div className="flex flex-col gap-2">
+                      <div className="flex flex-wrap gap-2">
+                        {msg.imageUrls.map((filename) => (
+                          <img
+                            key={filename}
+                            src={getUploadSrc(filename)}
+                            alt=""
+                            loading="lazy"
+                            className="max-w-full max-h-48 rounded object-contain bg-black/10"
+                          />
+                        ))}
+                      </div>
+                      {msg.body ? (
+                        <span className="whitespace-pre-wrap">{msg.body}</span>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <span className="whitespace-pre-wrap">{msg.body}</span>
+                  )}
+                </>
               ) : (
                 <div
                   className="markdown-body prose prose-sm max-w-none dark:prose-invert"

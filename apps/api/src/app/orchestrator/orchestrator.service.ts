@@ -4,6 +4,7 @@ import { Subject } from 'rxjs';
 import { ConfigService } from '../config/config.service';
 import { MessageStoreService } from '../message-store/message-store.service';
 import { ModelStoreService } from '../model-store/model-store.service';
+import { UploadsService } from '../uploads/uploads.service';
 import type { AgentStrategy } from '../strategies/strategy.types';
 import type { AuthConnection, LogoutConnection } from '../strategies/strategy.types';
 import { StrategyRegistryService } from '../strategies/strategy-registry.service';
@@ -31,7 +32,8 @@ export class OrchestratorService implements OnModuleInit {
     private readonly messageStore: MessageStoreService,
     private readonly modelStore: ModelStoreService,
     private readonly config: ConfigService,
-    private readonly strategyRegistry: StrategyRegistryService
+    private readonly strategyRegistry: StrategyRegistryService,
+    private readonly uploadsService: UploadsService
   ) {
     this.strategy = this.strategyRegistry.resolveStrategy();
   }
@@ -63,7 +65,13 @@ export class OrchestratorService implements OnModuleInit {
     }
   }
 
-  async handleClientMessage(msg: { action: string; code?: string; text?: string; model?: string }): Promise<void> {
+  async handleClientMessage(msg: {
+    action: string;
+    code?: string;
+    text?: string;
+    model?: string;
+    images?: string[];
+  }): Promise<void> {
     const action = msg.action;
 
     switch (action) {
@@ -86,7 +94,7 @@ export class OrchestratorService implements OnModuleInit {
         this.handleLogout();
         break;
       case WS_ACTION.SEND_CHAT_MESSAGE:
-        await this.handleChatMessage(msg.text ?? '');
+        await this.handleChatMessage(msg.text ?? '', msg.images);
         break;
       case WS_ACTION.GET_MODEL:
         this.handleGetModel();
@@ -167,7 +175,7 @@ export class OrchestratorService implements OnModuleInit {
     this.strategy.executeLogout(connection);
   }
 
-  private async handleChatMessage(text: string): Promise<void> {
+  private async handleChatMessage(text: string, images?: string[]): Promise<void> {
     if (!this.isAuthenticated) {
       this._send(WS_EVENT.ERROR, { message: ERROR_CODE.NEED_AUTH });
       return;
@@ -180,7 +188,18 @@ export class OrchestratorService implements OnModuleInit {
     this.logger.log(WS_ACTION.SEND_CHAT_MESSAGE);
     this.isProcessing = true;
 
-    const userMessage = this.messageStore.add('user', text);
+    const imageUrls: string[] = [];
+    if (images?.length) {
+      for (const dataUrl of images) {
+        try {
+          imageUrls.push(this.uploadsService.saveImage(dataUrl));
+        } catch {
+          this.logger.warn('Failed to save one image, skipping');
+        }
+      }
+    }
+
+    const userMessage = this.messageStore.add('user', text, imageUrls.length ? imageUrls : undefined);
     this._send(WS_EVENT.MESSAGE, userMessage as unknown as Record<string, unknown>);
 
     const systemPromptPath = this.config.getSystemPromptPath();
@@ -188,7 +207,17 @@ export class OrchestratorService implements OnModuleInit {
     if (existsSync(systemPromptPath)) {
       systemPrompt = readFileSync(systemPromptPath, 'utf8');
     }
-    const fullPrompt = `${systemPrompt}\n\n${text}`.trim();
+
+    let imageContext = '';
+    if (imageUrls.length) {
+      const paths = imageUrls
+        .map((f) => this.uploadsService.getPath(f))
+        .filter((p): p is string => p !== null);
+      imageContext = paths.length
+        ? `\n\nThe user attached ${paths.length} image(s). Full paths (for reference):\n${paths.map((p) => `- ${p}`).join('\n')}\n\n`
+        : '';
+    }
+    const fullPrompt = `${systemPrompt}${imageContext}\n${text}`.trim();
     const model = this.modelStore.get();
 
     let accumulated = '';

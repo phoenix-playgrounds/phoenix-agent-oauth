@@ -59,7 +59,13 @@ async function bootstrap() {
 
     ws.on('message', (raw: Buffer) => {
       try {
-        const msg = JSON.parse(raw.toString()) as { action: string; code?: string; text?: string; model?: string };
+        const msg = JSON.parse(raw.toString()) as {
+          action: string;
+          code?: string;
+          text?: string;
+          model?: string;
+          images?: string[];
+        };
         void orchestrator.handleClientMessage(msg);
       } catch {
         // ignore invalid JSON

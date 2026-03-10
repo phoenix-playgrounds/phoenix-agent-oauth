@@ -26,4 +26,5 @@ export interface ServerMessage {
   created_at?: string;
   text?: string;
   model?: string;
+  imageUrls?: string[];
 }

@@ -10,7 +10,8 @@ Nest Fastify API (project `api`).
 |--------|-----------------|-------|-----------------------------------------------------------------------------|
 | GET    | /api            | No    | Returns `{ message: 'Hello API' }`                                          |
 | POST   | /api/login      | No    | Body `{ password? }`. Returns `{ success, message?, token? }` or 401       |
-| GET    | /api/messages   | Bearer| Returns array of messages `{ id, role, body, created_at }[]`                 |
+| GET    | /api/messages   | Bearer| Returns array of messages `{ id, role, body, created_at, imageUrls? }[]`     |
+| GET    | /api/uploads/:filename | Bearer | Serves an uploaded image file (from chat attachments)        |
 | GET    | /api/model-options | Bearer | Returns string array of model names from `MODEL_OPTIONS` env                |
 
 When `AGENT_PASSWORD` is set, `GET /api/messages` and `GET /api/model-options` require `Authorization: Bearer <password>` or `?token=<password>`.
@@ -36,7 +37,7 @@ When `AGENT_PASSWORD` is set, `GET /api/messages` and `GET /api/model-options` r
 | cancel_auth        | —           | Cancel ongoing auth           |
 | reauthenticate     | —           | Clear credentials and re-auth |
 | logout             | —           | Log out from provider         |
-| send_chat_message  | `{ text }`  | Send user message and stream  |
+| send_chat_message  | `{ text, images? }`  | Send user message (optional base64 data URL array `images`) and stream  |
 | get_model          | —           | Request current model          |
 | set_model          | `{ model }` | Set model name                 |
 
@@ -54,7 +55,7 @@ Each message is an object with a `type` and optional extra fields.
 | logout_output       | text                | Logout CLI output                    |
 | logout_success      | —                   | Logout completed                     |
 | error               | message             | Error message                        |
-| message             | id?, role, body, created_at | Persisted message            |
+| message             | id?, role, body, created_at, imageUrls? | Persisted message (imageUrls = upload filenames) |
 | stream_start        | —                   | Start of assistant stream            |
 | stream_chunk        | text                | Chunk of assistant response          |
 | stream_end          | —                   | End of stream                        |

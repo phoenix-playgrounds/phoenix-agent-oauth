@@ -10,6 +10,8 @@ import { ModelStoreService } from './model-store/model-store.service';
 import { ModelOptionsController } from './model-options/model-options.controller';
 import { OrchestratorService } from './orchestrator/orchestrator.service';
 import { StrategyRegistryService } from './strategies/strategy-registry.service';
+import { UploadsController } from './uploads/uploads.controller';
+import { UploadsService } from './uploads/uploads.service';
 
 @Module({
   imports: [],
@@ -18,6 +20,7 @@ import { StrategyRegistryService } from './strategies/strategy-registry.service'
     AuthController,
     MessagesController,
     ModelOptionsController,
+    UploadsController,
   ],
   providers: [
     AppService,
@@ -27,6 +30,7 @@ import { StrategyRegistryService } from './strategies/strategy-registry.service'
     ModelStoreService,
     StrategyRegistryService,
     OrchestratorService,
+    UploadsService,
   ],
 })
 export class AppModule {}

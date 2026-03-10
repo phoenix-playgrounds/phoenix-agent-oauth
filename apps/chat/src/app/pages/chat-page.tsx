@@ -25,6 +25,7 @@ const STATE_LABELS: Record<string, string> = {
 };
 
 const MODEL_DEBOUNCE_MS = 500;
+const MAX_PENDING_IMAGES = 5;
 
 export function ChatPage() {
   const navigate = useNavigate();
@@ -34,7 +35,9 @@ export function ChatPage() {
   const [streamingText, setStreamingText] = useState('');
   const [modelOptions, setModelOptions] = useState<string[]>([]);
   const [currentModel, setCurrentModel] = useState('');
+  const [pendingImages, setPendingImages] = useState<string[]>([]);
   const modelDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const authenticated = isAuthenticated();
   useEffect(() => {
@@ -91,13 +94,15 @@ export function ChatPage() {
 
   const handleMessage = useCallback((data: ServerMessage) => {
     if (data.type === 'message' && data.role && data.body !== undefined) {
+      const payload = data as { id?: string; imageUrls?: string[] };
       setMessages((prev) => [
         ...prev,
         {
-          id: (data as { id?: string }).id,
+          id: payload.id,
           role: data.role,
           body: data.body ?? '',
           created_at: (data.created_at as string) ?? new Date().toISOString(),
+          ...(payload.imageUrls?.length ? { imageUrls: payload.imageUrls } : {}),
         },
       ]);
     }
@@ -134,10 +139,58 @@ export function ChatPage() {
   const handleSend = useCallback(() => {
     const input = document.getElementById('chat-input') as HTMLTextAreaElement | null;
     const text = input?.value?.trim();
-    if (!text || state !== CHAT_STATES.AUTHENTICATED) return;
-    send({ action: 'send_chat_message', text });
+    if ((!text && !pendingImages.length) || state !== CHAT_STATES.AUTHENTICATED) return;
+    send({
+      action: 'send_chat_message',
+      text: text ?? '',
+      ...(pendingImages.length ? { images: pendingImages } : {}),
+    });
     if (input) input.value = '';
-  }, [send, state]);
+    setPendingImages([]);
+  }, [send, state, pendingImages]);
+
+  const addImage = useCallback((dataUrl: string) => {
+    setPendingImages((prev) => (prev.length < MAX_PENDING_IMAGES ? [...prev, dataUrl] : prev));
+  }, []);
+
+  const removePendingImage = useCallback((index: number) => {
+    setPendingImages((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const handleFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = e.target.files;
+      if (!files?.length) return;
+      for (let i = 0; i < files.length && pendingImages.length < MAX_PENDING_IMAGES; i++) {
+        const file = files[i];
+        if (!file.type.startsWith('image/')) continue;
+        const reader = new FileReader();
+        reader.onload = () => {
+          const dataUrl = reader.result as string;
+          if (dataUrl) addImage(dataUrl);
+        };
+        reader.readAsDataURL(file);
+      }
+      e.target.value = '';
+    },
+    [addImage, pendingImages.length]
+  );
+
+  const handlePaste = useCallback(
+    (e: React.ClipboardEvent) => {
+      const item = e.clipboardData?.items?.find((it) => it.type.startsWith('image/'));
+      if (!item || pendingImages.length >= MAX_PENDING_IMAGES) return;
+      const file = item.getAsFile();
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        if (dataUrl) addImage(dataUrl);
+      };
+      reader.readAsDataURL(file);
+    },
+    [addImage, pendingImages.length]
+  );
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -255,27 +308,69 @@ export function ChatPage() {
       </main>
 
       <div className="p-4 border-t border-border bg-card/50">
-        <div className="max-w-3xl mx-auto flex gap-2">
-          <textarea
-            id="chat-input"
-            className="flex-1 min-h-[44px] max-h-32 px-3 py-2 rounded-lg bg-card border border-border text-foreground placeholder-muted-foreground resize-y disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
-            placeholder={
-              state === CHAT_STATES.AUTHENTICATED
-                ? 'Ask me anything...'
-                : 'Complete authentication to start chatting...'
-            }
-            rows={2}
-            disabled={state !== CHAT_STATES.AUTHENTICATED}
-            onKeyDown={handleKeyDown}
-          />
-          <button
-            type="button"
-            onClick={handleSend}
-            disabled={state !== CHAT_STATES.AUTHENTICATED}
-            className="px-4 rounded-lg bg-primary hover:opacity-90 text-primary-foreground disabled:opacity-50 self-end font-medium transition-opacity"
-          >
-            Send
-          </button>
+        <div className="max-w-3xl mx-auto flex flex-col gap-2">
+          {pendingImages.length > 0 && (
+            <div className="flex flex-wrap gap-2 items-center">
+              {pendingImages.map((dataUrl, i) => (
+                <div key={i} className="relative inline-block">
+                  <img
+                    src={dataUrl}
+                    alt=""
+                    className="w-16 h-16 object-cover rounded border border-border"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removePendingImage(i)}
+                    className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-destructive text-destructive-foreground text-xs flex items-center justify-center hover:opacity-90"
+                    aria-label="Remove image"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="flex gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={handleFileChange}
+            />
+            <textarea
+              id="chat-input"
+              className="flex-1 min-h-[44px] max-h-32 px-3 py-2 rounded-lg bg-card border border-border text-foreground placeholder-muted-foreground resize-y disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
+              placeholder={
+                state === CHAT_STATES.AUTHENTICATED
+                  ? 'Ask me anything... (paste or attach images)'
+                  : 'Complete authentication to start chatting...'
+              }
+              rows={2}
+              disabled={state !== CHAT_STATES.AUTHENTICATED}
+              onKeyDown={handleKeyDown}
+              onPaste={handlePaste}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={state !== CHAT_STATES.AUTHENTICATED || pendingImages.length >= MAX_PENDING_IMAGES}
+              className="px-3 rounded-lg border border-border bg-card hover:bg-muted disabled:opacity-50 self-end font-medium transition-colors"
+              title="Attach image"
+              aria-label="Attach image"
+            >
+              📷
+            </button>
+            <button
+              type="button"
+              onClick={handleSend}
+              disabled={state !== CHAT_STATES.AUTHENTICATED}
+              className="px-4 rounded-lg bg-primary hover:opacity-90 text-primary-foreground disabled:opacity-50 self-end font-medium transition-opacity"
+            >
+              Send
+            </button>
+          </div>
         </div>
       </div>
     </div>
