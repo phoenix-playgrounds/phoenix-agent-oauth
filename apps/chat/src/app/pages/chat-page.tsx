@@ -1,10 +1,11 @@
-import { ImagePlus, Menu, Mic, Paperclip, Search, Send, X } from 'lucide-react';
+import { ImagePlus, Key, LogOut, Menu, Mic, Paperclip, Search, Send, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthModal } from '../chat/auth-modal';
 import { MessageList, type ChatMessage } from '../chat/message-list';
 import { ModelSelector } from '../chat/model-selector';
 import { FileExplorer } from '../file-explorer/file-explorer';
+import { ThemeToggle } from '../theme-toggle';
 import { CHAT_STATES } from '../chat/chat-state';
 import { useChatWebSocket } from '../chat/use-chat-websocket';
 import { useVoiceRecorder } from '../chat/use-voice-recorder';
@@ -36,6 +37,7 @@ export function ChatPage() {
 
   const [isMobile, setIsMobile] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -298,6 +300,8 @@ export function ChatPage() {
     [send]
   );
 
+  const closeSettings = useCallback(() => setSettingsOpen(false), []);
+
   if (!authenticated) {
     return null;
   }
@@ -329,6 +333,72 @@ export function ChatPage() {
         onClose={cancelAuth}
         onSubmitCode={submitAuthCode}
       />
+      {settingsOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-50 bg-black/50"
+            aria-hidden
+            onClick={closeSettings}
+          />
+          <div
+            className="fixed top-1/2 left-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border shadow-card overflow-hidden"
+            style={{ backgroundColor: 'var(--card)' }}
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="settings-dialog-title"
+          >
+            <div className="flex items-center justify-between p-4 border-b border-border-subtle">
+              <h2 id="settings-dialog-title" className="text-lg font-semibold text-foreground">
+                Settings
+              </h2>
+              <button
+                type="button"
+                onClick={closeSettings}
+                className="size-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-violet-500/10"
+                aria-label="Close"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              <div className="flex items-center justify-between py-2">
+                <span className="text-sm font-medium text-foreground">Dark mode</span>
+                <ThemeToggle />
+              </div>
+              {(state === CHAT_STATES.UNAUTHENTICATED || state === CHAT_STATES.AUTHENTICATED) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeSettings();
+                    state === CHAT_STATES.UNAUTHENTICATED ? startAuth() : reauthenticate();
+                  }}
+                  className="w-full flex items-center gap-2 px-4 py-2.5 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-violet-500/10 transition-colors"
+                >
+                  <Key className="size-4" />
+                  {state === CHAT_STATES.UNAUTHENTICATED ? 'Start Auth' : 'Re-authenticate'}
+                </button>
+              )}
+              {(state === CHAT_STATES.AUTHENTICATED || state === CHAT_STATES.AWAITING_RESPONSE) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeSettings();
+                    logout();
+                  }}
+                  className="w-full flex items-center gap-2 px-4 py-2.5 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 text-sm font-medium transition-colors"
+                >
+                  <LogOut className="size-4" />
+                  Logout
+                </button>
+              )}
+              <p className="text-xs text-muted-foreground pt-2">
+                Phoenix Quantum Storage · v2.4.1
+              </p>
+            </div>
+          </div>
+        </>
+      )}
       {isMobile && (
         <>
           <div className="fixed top-4 left-4 z-40 lg:hidden">
@@ -357,7 +427,7 @@ export function ChatPage() {
                 >
                   <X className="size-4" />
                 </button>
-                <FileExplorer fullWidth />
+                <FileExplorer fullWidth onSettingsClick={() => setSettingsOpen(true)} />
               </div>
             </>
           )}
@@ -365,7 +435,7 @@ export function ChatPage() {
       )}
       {!isMobile && (
         <aside className="flex min-h-0 w-full flex-shrink-0 flex-col overflow-hidden lg:w-80">
-          <FileExplorer />
+          <FileExplorer onSettingsClick={() => setSettingsOpen(true)} />
         </aside>
       )}
       <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-transparent">
