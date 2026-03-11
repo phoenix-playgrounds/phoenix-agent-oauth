@@ -48,6 +48,8 @@ COPY --from=cli /usr/local/bin /usr/local/bin
 WORKDIR /app
 
 COPY --from=builder /app/apps/api/dist ./dist/
+COPY apps/api/package.json ./package.json
+RUN npm install --omit=dev --ignore-scripts && npm cache clean --force
 
 EXPOSE 3000
 
