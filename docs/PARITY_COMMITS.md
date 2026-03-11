@@ -39,3 +39,10 @@ Each commit is one logical change. Applied in order.
    - Chat: all icon buttons and pills rounded-md; assistant avatar relative.
    - File explorer: Folder/FolderOpen/File 24x24 lucide-style; Settings rounded-md.
    - Theme toggle, auth modal close: rounded-md.
+
+12. ✅ **style: typography, layout, model selector**
+   - --font-size: 16px, html font-size; chat root size-full min-h-screen, main bg-transparent.
+   - Model selector: rounded-md, hidden md:flex; login w-full.
+
+13. ✅ **style(file-explorer): tree container p-2**
+   - Match design FileExplorerSidebar tree wrapper padding.
