@@ -1,6 +1,7 @@
 import { describe, test, expect, afterEach } from 'bun:test';
 import { StrategyRegistryService } from './strategy-registry.service';
 import { MockStrategy } from './mock.strategy';
+import { ClaudeCodeStrategy } from './claude-code.strategy';
 
 describe('StrategyRegistryService', () => {
   const envBackup = process.env.AGENT_PROVIDER;
@@ -15,10 +16,10 @@ describe('StrategyRegistryService', () => {
     expect(service.resolveStrategy()).toBeInstanceOf(MockStrategy);
   });
 
-  test('resolveStrategy returns MockStrategy when AGENT_PROVIDER not set', () => {
+  test('resolveStrategy returns ClaudeCodeStrategy when AGENT_PROVIDER not set', () => {
     delete process.env.AGENT_PROVIDER;
     const service = new StrategyRegistryService();
-    expect(service.resolveStrategy()).toBeInstanceOf(MockStrategy);
+    expect(service.resolveStrategy()).toBeInstanceOf(ClaudeCodeStrategy);
   });
 
   test('resolveStrategy throws for unknown provider', () => {

@@ -8,8 +8,14 @@ import { WebSocketServer } from 'ws';
 import { AppModule } from './app/app.module';
 import { ConfigService } from './app/config/config.service';
 import { OrchestratorService } from './app/orchestrator/orchestrator.service';
+import { loadInjectedCredentials } from './credential-injector';
 
 async function bootstrap() {
+  const injected = loadInjectedCredentials();
+  if (injected) {
+    Logger.log('Stored agent credentials loaded — skipping manual auth.');
+  }
+
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter()
