@@ -148,6 +148,34 @@ describe('FileExplorer', () => {
     expect(screen.getAllByText('readme.md').length).toBeGreaterThanOrEqual(1);
   });
 
+  it('calls onSettingsClick when Settings button is clicked', async () => {
+    (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => [] as PlaygroundEntry[],
+    });
+    const onSettingsClick = vi.fn();
+    render(<FileExplorer onSettingsClick={onSettingsClick} />);
+    await waitFor(() => {
+      expect(screen.getByText(/playground\//)).toBeTruthy();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    expect(onSettingsClick).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not throw when Settings is clicked without onSettingsClick', async () => {
+    (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => [] as PlaygroundEntry[],
+    });
+    render(<FileExplorer />);
+    await waitFor(() => {
+      expect(screen.getByText(/playground\//)).toBeTruthy();
+    });
+    expect(() => fireEvent.click(screen.getByRole('button', { name: 'Settings' }))).not.toThrow();
+  });
+
   it('shows diff content in dialog after file content is loaded', async () => {
     const tree: PlaygroundEntry[] = [
       { name: 'app.js', path: 'app.js', type: 'file' },

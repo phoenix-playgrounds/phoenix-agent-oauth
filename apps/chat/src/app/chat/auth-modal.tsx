@@ -40,7 +40,8 @@ export function AuthModal({ open, authModal, onClose, onSubmitCode }: AuthModalP
       onClick={onClose}
     >
       <div
-        className="bg-card/95 dark:bg-slate-900/95 backdrop-blur-xl border border-violet-500/20 rounded-2xl shadow-[0_0_40px_rgba(139,92,246,0.15)] overflow-hidden w-full max-w-lg"
+        className="border border-border rounded-2xl shadow-card overflow-hidden w-full max-w-lg"
+        style={{ backgroundColor: 'var(--card)' }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between p-4 sm:p-5 border-b border-border-subtle bg-gradient-to-br from-violet-500/5 to-transparent">

@@ -299,7 +299,8 @@ function FileDetailsDialog({
       onClick={onClose}
     >
       <div
-        className="flex flex-col w-full max-w-[95vw] sm:max-w-[90vw] sm:w-[90vw] h-[85vh] sm:h-[90vh] max-h-[calc(100vh-2rem)] bg-background/80 dark:bg-background/75 backdrop-blur-xl border border-border dark:border-violet-500/30 rounded-xl shadow-card dark:shadow-[0_0_50px_rgba(139,92,246,0.2)] overflow-hidden"
+        className="flex flex-col w-full max-w-[95vw] sm:max-w-[90vw] sm:w-[90vw] h-[85vh] sm:h-[90vh] max-h-[calc(100vh-2rem)] border border-border rounded-xl shadow-card overflow-hidden"
+        style={{ backgroundColor: 'var(--card)' }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-4 sm:p-6 border-b border-border-subtle bg-gradient-to-r from-violet-500/10 via-purple-500/5 to-violet-500/10 backdrop-blur-sm shrink-0">
@@ -425,7 +426,7 @@ function FileDetailsDialog({
                         )}
                         <p className="text-sm leading-relaxed text-foreground">{issue.message}</p>
                         {issue.suggestion && (
-                          <div className="mt-2 p-2 bg-background/50 backdrop-blur-sm rounded-lg border border-border-subtle">
+                          <div className="mt-2 p-2 bg-muted/80 rounded-lg border border-border-subtle">
                             <p className="text-xs text-muted-foreground mb-1">Suggestion:</p>
                             <code className="text-xs font-mono text-foreground">{issue.suggestion}</code>
                           </div>
@@ -543,7 +544,10 @@ function TreeNode({
   );
 }
 
-export function FileExplorer({ fullWidth }: { fullWidth?: boolean } = {}) {
+export function FileExplorer({
+  fullWidth,
+  onSettingsClick,
+}: { fullWidth?: boolean; onSettingsClick?: () => void } = {}) {
   const [tree, setTree] = useState<PlaygroundEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -649,6 +653,7 @@ export function FileExplorer({ fullWidth }: { fullWidth?: boolean } = {}) {
               className="size-7 sm:size-8 flex items-center justify-center rounded-md text-violet-600 dark:text-violet-400 hover:bg-violet-500/10 transition-colors"
               title="Settings"
               aria-label="Settings"
+              onClick={onSettingsClick}
             >
               <Settings className="size-3.5 sm:size-4" />
             </button>
