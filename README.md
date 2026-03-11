@@ -61,4 +61,4 @@ Copy `.env.example` to `.env` and adjust. Main variables:
 | **e2e**     | `bun run e2e`  | Run E2E tests                  |
 | **ci**      | `bun run ci`   | Lint, test, build, typecheck, e2e (CI pipeline) |
 
-GitHub Actions CI uses Bun and runs `bun run ci`. For reproducible CI, run `bun install` locally once and commit `bun.lockb`, then in `.github/workflows/ci.yml` you can use `bun install --frozen-lockfile`.
+GitHub Actions CI uses Bun and runs `bun run ci`. For reproducible CI, run `bun install` locally once and commit `bun.lock`, then the workflow can use `bun install --frozen-lockfile` in the test job.
