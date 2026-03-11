@@ -24,7 +24,7 @@ COPY apps/api/package.json apps/api/
 COPY apps/chat/package.json apps/chat/
 
 RUN --mount=type=cache,target=/root/.bun/install/cache \
-    bun install --frozen-lockfile
+    bun install
 
 COPY apps/api apps/api
 
