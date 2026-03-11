@@ -43,7 +43,7 @@ export function AuthModal({ open, authModal, onClose, onSubmitCode }: AuthModalP
         className="bg-card/95 dark:bg-slate-900/95 backdrop-blur-xl border border-violet-500/20 rounded-2xl shadow-[0_0_40px_rgba(139,92,246,0.15)] overflow-hidden w-full max-w-lg"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-border/50 bg-gradient-to-br from-violet-500/5 to-transparent">
+        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-border-subtle bg-gradient-to-br from-violet-500/5 to-transparent">
           <h3 className="text-base sm:text-lg font-semibold text-card-foreground flex items-center gap-2">
             <span className="p-1.5 rounded-lg bg-violet-500/10 border border-violet-500/20">
               <KeyIcon className="size-4 text-violet-400" />
@@ -77,7 +77,7 @@ export function AuthModal({ open, authModal, onClose, onSubmitCode }: AuthModalP
             </div>
           )}
           {showUrl && (authModal.deviceCode || authModal.isManualToken) && (
-            <div className="border-t border-border/50 pt-4" />
+            <div className="border-t border-border-subtle pt-4" />
           )}
           <div className="space-y-2">
             <label htmlFor="auth-code" className="block text-xs sm:text-sm font-medium text-foreground">
@@ -90,7 +90,7 @@ export function AuthModal({ open, authModal, onClose, onSubmitCode }: AuthModalP
               readOnly={readOnly}
               onChange={(e) => setCode(e.target.value)}
               placeholder="Paste code here..."
-              className="w-full px-3 py-2.5 rounded-xl bg-background/50 border border-border focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20 text-foreground placeholder-muted-foreground outline-none transition-shadow"
+              className="w-full px-3 py-2.5 rounded-xl bg-background/50 border border-border text-foreground placeholder-muted-foreground focus:border-violet-500/50 dark:focus:border-primary focus:ring-2 focus:ring-violet-500/20 dark:focus:ring-primary/30 outline-none transition-shadow"
             />
             {showSubmit && (
               <button

@@ -36,7 +36,7 @@ export function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-slate-950 via-violet-950 to-slate-900 relative overflow-hidden">
+    <div className="w-full h-full min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-violet-950 to-slate-900 relative overflow-hidden">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute inset-0 bg-[linear-gradient(rgba(139,92,246,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(139,92,246,0.03)_1px,transparent_1px)] bg-[size:50px_50px] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_50%,black,transparent)]" />
         {[0, 1, 2, 3, 4].map((i) => (
@@ -68,9 +68,6 @@ export function LoginPage() {
       </div>
 
       <div className="relative z-10 w-full max-w-md px-4">
-        <h2 className="text-xl sm:text-2xl font-semibold text-white mb-6 tracking-tight text-center">
-          Phoenix Chat
-        </h2>
         <div className="bg-slate-800/40 backdrop-blur-2xl border border-violet-500/20 rounded-2xl shadow-[0_0_50px_rgba(139,92,246,0.3)] p-6 sm:p-8">
             <div className="flex items-center justify-between mb-4 sm:mb-6">
               <div className="flex items-center gap-2 sm:gap-3">
@@ -122,10 +119,10 @@ export function LoginPage() {
               className="w-full h-10 sm:h-11 text-sm font-medium rounded-md bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white shadow-lg shadow-violet-500/30 transition-all duration-300 hover:shadow-violet-500/50 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
             >
               {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <span className="w-3.5 h-3.5 sm:w-4 sm:h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <div className="flex items-center justify-center gap-2">
+                  <div className="w-3.5 h-3.5 sm:w-4 sm:h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   <span className="text-xs sm:text-sm">Authenticating...</span>
-                </span>
+                </div>
               ) : (
                 'Login'
               )}

@@ -5,13 +5,15 @@
 @layer base {
   :root {
     --font-size: 16px;
-    --background: #fafaff;
+    --background: #ffffff;
     --foreground: #1a1625;
-    --card: #ffffff;
+    --card: #fafaff;
     --card-foreground: #1a1625;
     --muted: #f5f3ff;
     --muted-foreground: #6b7280;
     --border: rgba(124, 58, 237, 0.1);
+    --border-subtle: rgba(124, 58, 237, 0.05);
+    --input-bg: rgba(249, 248, 255, 0.5);
     --primary: #7c3aed;
     --primary-foreground: #ffffff;
     --secondary: #f5f3ff;
@@ -36,11 +38,14 @@
     --muted: #27272a;
     --muted-foreground: #9ca3af;
     --border: rgba(167, 139, 250, 0.15);
+    --border-subtle: rgba(167, 139, 250, 0.075);
+    --input-bg: rgba(26, 26, 32, 0.6);
+    --sidebar-border: rgba(167, 139, 250, 0.15);
     --primary: #a78bfa;
     --primary-foreground: #1a1625;
     --secondary: #2e1f47;
     --secondary-foreground: #f5f3ff;
-    --destructive: #f87171;
+    --destructive: #ef4444;
     --success: #4ade80;
     --warning: #fbbf24;
     --shadow-soft: 0 1px 3px 0 rgb(0 0 0 / 0.2);
@@ -105,18 +110,39 @@
   .animate-spin-reverse { animation: spin-reverse 6s linear infinite; }
   .animate-explode { animation: explode 0.8s ease-out forwards; }
   .animate-energy-flow-1 { animation: energy-flow-1 3s linear infinite; }
-  .animate-energy-flow-2 { animation: energy-flow-2 2.5s linear infinite; }
-  .animate-energy-flow-3 { animation: energy-flow-3 3.5s linear infinite; }
+  .animate-energy-flow-2 { animation: energy-flow-2 2.5s linear infinite; animation-delay: 0.5s; }
+  .animate-energy-flow-3 { animation: energy-flow-3 3.5s linear infinite; animation-delay: 1s; }
 }
 
 html {
   font-size: var(--font-size);
+  height: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  height: 100%;
+  min-height: 0;
+  background-color: var(--background);
+}
+
+#root {
+  height: 100%;
+  min-height: 0;
+}
+
+.chat-messages-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.chat-messages-scroll::-webkit-scrollbar {
+  display: none;
 }
 
 .markdown-body h1,

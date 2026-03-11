@@ -58,6 +58,18 @@ function getDirPathsAtDepth(entries: PlaygroundEntry[], depth: number): string[]
   return out;
 }
 
+function getMaxExpandedDepth(entries: PlaygroundEntry[], expanded: Set<string>): number {
+  let d = 0;
+  let max = -1;
+  while (true) {
+    const paths = getDirPathsAtDepth(entries, d);
+    if (paths.length === 0) break;
+    if (paths.some((p) => expanded.has(p))) max = d;
+    d++;
+  }
+  return max;
+}
+
 function filterTreeByQuery(entries: PlaygroundEntry[], query: string): PlaygroundEntry[] {
   if (!query.trim()) return entries;
   const lower = query.trim().toLowerCase();
@@ -322,8 +334,12 @@ export function FileExplorer({ fullWidth }: { fullWidth?: boolean } = {}) {
         }
         if (!res.ok) throw new Error('Failed to load playgrounds');
         const data = (await res.json()) as PlaygroundEntry[];
-        setTree(Array.isArray(data) ? data : []);
+        const list = Array.isArray(data) ? data : [];
+        setTree(list);
         setError(null);
+        if (list.length > 0) {
+          setExpanded(new Set(getDirPathsAtDepth(list, 0)));
+        }
       } catch (e) {
         if ((e as Error).name === 'AbortError') return;
         setTree([]);
@@ -347,7 +363,8 @@ export function FileExplorer({ fullWidth }: { fullWidth?: boolean } = {}) {
   const expandOneLevel = useCallback(() => {
     setExpanded((prev) => {
       const next = new Set(prev);
-      getDirPathsAtDepth(tree, 1).forEach((p) => next.add(p));
+      const maxD = getMaxExpandedDepth(tree, prev);
+      getDirPathsAtDepth(tree, maxD + 1).forEach((p) => next.add(p));
       return next;
     });
   }, [tree]);
@@ -355,7 +372,8 @@ export function FileExplorer({ fullWidth }: { fullWidth?: boolean } = {}) {
   const collapseOneLevel = useCallback(() => {
     setExpanded((prev) => {
       const next = new Set(prev);
-      getDirPathsAtDepth(tree, 1).forEach((p) => next.delete(p));
+      const maxD = getMaxExpandedDepth(tree, prev);
+      if (maxD >= 0) getDirPathsAtDepth(tree, maxD).forEach((p) => next.delete(p));
       return next;
     });
   }, [tree]);
