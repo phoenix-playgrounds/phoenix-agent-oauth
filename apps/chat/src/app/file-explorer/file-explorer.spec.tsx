@@ -90,7 +90,7 @@ describe('FileExplorer', () => {
     expect(screen.getByText('src')).toBeTruthy();
   });
 
-  it('expands directory when folder is clicked', async () => {
+  it('expands and collapses directory when folder is clicked', async () => {
     const tree: PlaygroundEntry[] = [
       {
         name: 'lib',
@@ -108,7 +108,13 @@ describe('FileExplorer', () => {
     await waitFor(() => {
       expect(screen.getByText('lib')).toBeTruthy();
     });
-    expect(screen.queryByText('util.ts')).toBeNull();
+    await waitFor(() => {
+      expect(screen.getByText('util.ts')).toBeTruthy();
+    });
+    fireEvent.click(screen.getByText('lib'));
+    await waitFor(() => {
+      expect(screen.queryByText('util.ts')).toBeNull();
+    });
     fireEvent.click(screen.getByText('lib'));
     await waitFor(() => {
       expect(screen.getByText('util.ts')).toBeTruthy();
