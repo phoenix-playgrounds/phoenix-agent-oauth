@@ -1,4 +1,5 @@
 import {
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   ImagePlus,
@@ -24,6 +25,7 @@ import { MentionInput } from '../chat/mention-input';
 import { MessageList, type ChatMessage } from '../chat/message-list';
 import { ModelSelector } from '../chat/model-selector';
 import { useChatWebSocket } from '../chat/use-chat-websocket';
+import { useScrollToBottom } from '../chat/use-scroll-to-bottom';
 import { usePlaygroundFiles } from '../chat/use-playground-files';
 import { useVoiceRecorder } from '../chat/use-voice-recorder';
 import { AnimatedPhoenixLogo } from '../animated-phoenix-logo';
@@ -62,8 +64,9 @@ const MOBILE_BREAKPOINT_PX = 1024;
 
 export function ChatPage() {
   const navigate = useNavigate();
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const messagesScrollRef = useRef<HTMLDivElement>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [streamingText, setStreamingText] = useState('');
+  const scroll = useScrollToBottom([messages, streamingText]);
 
   const [isMobile, setIsMobile] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -71,8 +74,6 @@ export function ChatPage() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [streamingText, setStreamingText] = useState('');
   const [lastSentMessage, setLastSentMessage] = useState<string | null>(null);
   const [modelOptions, setModelOptions] = useState<string[]>([]);
   const [currentModel, setCurrentModel] = useState('');
@@ -173,13 +174,6 @@ export function ChatPage() {
 
   const closeMobileSidebar = useCallback(() => setSidebarOpen(false), []);
 
-  useEffect(() => {
-    const id = requestAnimationFrame(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    });
-    return () => cancelAnimationFrame(id);
-  }, [messages, streamingText]);
-
   const handleMessage = useCallback((data: ServerMessage) => {
     if (data.type === 'message' && data.role && data.body !== undefined) {
       const payload = data as { id?: string; imageUrls?: string[] };
@@ -255,7 +249,8 @@ export function ChatPage() {
     setPendingImages([]);
     setPendingVoice(null);
     setPendingVoiceFilename(null);
-  }, [send, state, inputValue, pendingImages, pendingVoice, pendingVoiceFilename]);
+    scroll.markJustSent();
+  }, [send, state, inputValue, pendingImages, pendingVoice, pendingVoiceFilename, scroll.markJustSent]);
 
   const addImage = useCallback((dataUrl: string) => {
     setPendingImages((prev) => (prev.length < MAX_PENDING_IMAGES ? [...prev, dataUrl] : prev));
@@ -666,20 +661,34 @@ export function ChatPage() {
             </button>
           </div>
         )}
-        <div
-          ref={messagesScrollRef}
-          className="chat-messages-scroll flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8"
-        >
+        <div className="relative flex-1 min-h-0 flex flex-col min-w-0">
+          <div
+            ref={scroll.scrollRef}
+            onScroll={scroll.onScroll}
+            className="chat-messages-scroll flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8"
+          >
             <div className="max-w-4xl">
               <MessageList
                 messages={filteredMessages}
                 streamingText={streamingText}
                 isStreaming={state === CHAT_STATES.AWAITING_RESPONSE}
                 lastUserMessage={state === CHAT_STATES.AWAITING_RESPONSE ? lastSentMessage : null}
-                scrollRef={messagesScrollRef}
+                scrollRef={scroll.scrollRef}
               />
-              <div ref={messagesEndRef} />
+              <div ref={scroll.endRef} />
             </div>
+          </div>
+          {!scroll.isAtBottom && (
+            <button
+              type="button"
+              onClick={() => scroll.scrollToBottom('smooth')}
+              className="absolute bottom-4 right-4 sm:right-6 md:right-8 z-10 flex items-center gap-1.5 px-3 py-2 rounded-full bg-card/95 border border-border shadow-lg text-sm font-medium text-foreground hover:bg-violet-500/10 hover:border-violet-500/30 focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:ring-offset-2 focus:ring-offset-background transition-colors"
+              aria-label="Jump to latest messages"
+            >
+              <ChevronDown className="size-4 shrink-0" aria-hidden />
+              <span>Latest</span>
+            </button>
+          )}
         </div>
         <div className="shrink-0 p-3 sm:p-4 md:p-6 border-t border-border bg-card/30 backdrop-blur-sm">
             <div className="max-w-4xl flex flex-col gap-2">
