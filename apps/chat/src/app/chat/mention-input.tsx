@@ -178,7 +178,6 @@ export function MentionInput({
             const segs = readDomFromEl(root);
             const next = segs.filter((seg) => seg.type !== 'mention' || seg.path !== chipPath);
             const str = segmentsToStr(next);
-            lastEmittedRef.current = str;
             onChange(str);
           };
           el.appendChild(buildChipSpan(chipPath, onRemove));
@@ -238,37 +237,77 @@ export function MentionInput({
     }
   }, [onCursorChange, ref]);
 
+  const removeChipAtPath = useCallback(
+    (path: string) => {
+      const root = ref.current;
+      if (!root) return;
+      const segs = readDomFromEl(root);
+      let offset = 0;
+      for (const s of segs) {
+        if (s.type === 'mention' && s.path === path) break;
+        offset += s.type === 'text' ? s.value.length : 1 + s.path.length;
+      }
+      const next = segs.filter((s) => s.type !== 'mention' || s.path !== path);
+      const newVal = segmentsToStr(next);
+      savedCaretRef.current = offset;
+      if (onValueAndCursor) {
+        onValueAndCursor(newVal, offset);
+      } else {
+        lastEmittedRef.current = newVal;
+        onChange(newVal);
+        onCursorChange?.(offset);
+      }
+    },
+    [onChange, onCursorChange, onValueAndCursor, ref]
+  );
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === 'Backspace' && ref.current) {
         const sel = window.getSelection();
-        if (!sel || sel.anchorOffset !== 0 || !ref.current.contains(sel.anchorNode)) {
+        if (!sel || !ref.current.contains(sel.anchorNode)) {
           onKeyDown?.(e);
           return;
         }
+        const root = ref.current;
         let node: Node | null = sel.anchorNode;
-        while (node && node !== ref.current) {
+        while (node && node !== root) {
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            const path = (node as HTMLElement).getAttribute('data-path');
+            if (path) {
+              removeChipAtPath(path);
+              e.preventDefault();
+              e.stopPropagation();
+              return;
+            }
+          }
+          node = node.parentNode;
+        }
+        if (sel.anchorNode === root && sel.anchorOffset > 0) {
+          const prevChild = root.childNodes[sel.anchorOffset - 1];
+          if (prevChild?.nodeType === Node.ELEMENT_NODE) {
+            const el = prevChild as HTMLElement;
+            const path = el.getAttribute('data-path');
+            if (path) {
+              removeChipAtPath(path);
+              e.preventDefault();
+              e.stopPropagation();
+              return;
+            }
+          }
+        }
+        if (sel.anchorOffset !== 0) {
+          onKeyDown?.(e);
+          return;
+        }
+        node = sel.anchorNode;
+        while (node && node !== root) {
           const prev = node.previousSibling;
           if (prev && prev.nodeType === Node.ELEMENT_NODE) {
             const el = prev as HTMLElement;
             const path = el.getAttribute('data-path');
             if (path) {
-              const segs = readDomFromEl(ref.current);
-              let offset = 0;
-              for (const s of segs) {
-                if (s.type === 'mention' && s.path === path) break;
-                offset += s.type === 'text' ? s.value.length : 1 + s.path.length;
-              }
-              const next = segs.filter((s) => s.type !== 'mention' || s.path !== path);
-              const newVal = segmentsToStr(next);
-              savedCaretRef.current = offset;
-              if (onValueAndCursor) {
-                onValueAndCursor(newVal, offset);
-              } else {
-                lastEmittedRef.current = newVal;
-                onChange(newVal);
-                onCursorChange?.(offset);
-              }
+              removeChipAtPath(path);
               e.preventDefault();
               e.stopPropagation();
               return;
@@ -279,7 +318,7 @@ export function MentionInput({
       }
       onKeyDown?.(e);
     },
-    [onChange, onCursorChange, onValueAndCursor, onKeyDown, ref]
+    [onChange, onCursorChange, onValueAndCursor, onKeyDown, ref, removeChipAtPath]
   );
 
   return (

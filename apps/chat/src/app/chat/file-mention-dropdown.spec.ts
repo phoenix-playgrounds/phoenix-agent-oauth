@@ -1,5 +1,47 @@
 import { describe, it, expect } from 'vitest';
-import { getAtMentionState } from './file-mention-dropdown';
+import {
+  getAtMentionState,
+  valueAfterAtMatchesEntry,
+} from './file-mention-dropdown';
+
+describe('valueAfterAtMatchesEntry', () => {
+  const entries = [
+    { path: 'examples', name: 'examples', type: 'directory' as const },
+    { path: 'zcss/docs', name: 'docs', type: 'directory' as const },
+  ];
+
+  it('returns false when value has no @', () => {
+    expect(valueAfterAtMatchesEntry('hello', entries)).toBe(false);
+  });
+
+  it('returns false when token after @ is empty', () => {
+    expect(valueAfterAtMatchesEntry('@', entries)).toBe(false);
+  });
+
+  it('returns true when token after @ matches entry path', () => {
+    expect(valueAfterAtMatchesEntry('@examples', entries)).toBe(true);
+  });
+
+  it('returns true when token after @ matches entry name', () => {
+    expect(valueAfterAtMatchesEntry('@docs', entries)).toBe(true);
+  });
+
+  it('returns true when token matches full path', () => {
+    expect(valueAfterAtMatchesEntry('@zcss/docs', entries)).toBe(true);
+  });
+
+  it('returns false when token is partial and matches no entry', () => {
+    expect(valueAfterAtMatchesEntry('@ex', entries)).toBe(false);
+  });
+
+  it('uses only the first token when value has space after @', () => {
+    expect(valueAfterAtMatchesEntry('@examples foo', entries)).toBe(true);
+  });
+
+  it('returns false for empty entries', () => {
+    expect(valueAfterAtMatchesEntry('@examples', [])).toBe(false);
+  });
+});
 
 describe('getAtMentionState', () => {
   it('returns show false when no @ before cursor', () => {
