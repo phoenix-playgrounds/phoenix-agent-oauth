@@ -88,7 +88,8 @@ export function ChatPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatInputRef = useRef<HTMLDivElement>(null);
   const messageListRef = useRef<MessageListHandle | null>(null);
-  const { entries: playgroundEntries } = usePlaygroundFiles();
+  const { entries: playgroundEntries, loading: playgroundLoading } = usePlaygroundFiles();
+  const hasPlaygroundFiles = playgroundLoading || playgroundEntries.length > 0;
   const atMention = getAtMentionState(inputValue, cursorOffset);
   const [mentionDropdownClosedAfterSelect, setMentionDropdownClosedAfterSelect] = useState(false);
   const mentionOpen =
@@ -496,7 +497,7 @@ export function ChatPage() {
           </div>
         </>
       )}
-      {isMobile && sidebarOpen && (
+      {hasPlaygroundFiles && isMobile && sidebarOpen && (
         <>
           <div
             className="fixed inset-0 z-50 bg-black/50 lg:hidden"
@@ -512,7 +513,7 @@ export function ChatPage() {
           </div>
         </>
       )}
-      {!isMobile && (
+      {hasPlaygroundFiles && !isMobile && (
         <div
           className="relative flex min-h-0 flex-shrink-0 flex-col overflow-visible transition-[width] duration-300 ease-out"
           style={{ width: sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH_PX : SIDEBAR_WIDTH_PX }}
