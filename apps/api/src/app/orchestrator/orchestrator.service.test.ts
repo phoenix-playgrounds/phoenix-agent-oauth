@@ -29,6 +29,7 @@ describe('OrchestratorService', () => {
       getDataDir: () => dataDir,
       getSystemPromptPath: () => join(dataDir, 'nonexistent.md'),
       getModelOptions: () => [],
+      getDefaultModel: () => '',
     };
     const messageStore = new MessageStoreService(config as never);
     const modelStore = new ModelStoreService(config as never);

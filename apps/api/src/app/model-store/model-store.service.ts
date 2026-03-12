@@ -15,6 +15,11 @@ export class ModelStoreService {
   }
 
   get(): string {
+    const stored = this.getStored();
+    return stored || this.config.getDefaultModel();
+  }
+
+  private getStored(): string {
     if (this.cached !== null) return this.cached;
     if (!existsSync(this.modelPath)) {
       this.cached = '';

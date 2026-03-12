@@ -489,7 +489,7 @@ export function ChatPage() {
                 </button>
               )}
               <p className="text-xs text-muted-foreground pt-2">
-                Phoenix Quantum Storage · v2.4.1
+                Phoenix Quantum Storage · v{__APP_VERSION__}
               </p>
             </div>
           </div>

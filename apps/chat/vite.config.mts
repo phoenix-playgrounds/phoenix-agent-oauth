@@ -1,8 +1,17 @@
 /// <reference types='vitest' />
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
+const rootPkg = JSON.parse(
+  readFileSync(join(import.meta.dirname, '../../package.json'), 'utf-8')
+) as { version: string };
+
 export default defineConfig(() => ({
+  define: {
+    __APP_VERSION__: JSON.stringify(rootPkg.version),
+  },
   root: import.meta.dirname,
   cacheDir: '../../node_modules/.vite/apps/chat',
   server: {
