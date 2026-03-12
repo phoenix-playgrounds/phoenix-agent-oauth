@@ -8,6 +8,7 @@ import multipart from '@fastify/multipart';
 import { WebSocketServer } from 'ws';
 import { AppModule } from './app/app.module';
 import { ConfigService } from './app/config/config.service';
+import { GlobalHttpExceptionFilter } from './app/http-exception.filter';
 import { OrchestratorService } from './app/orchestrator/orchestrator.service';
 import { loadInjectedCredentials } from './credential-injector';
 
@@ -26,6 +27,7 @@ async function bootstrap() {
 
   const globalPrefix = 'api';
   app.setGlobalPrefix(globalPrefix);
+  app.useGlobalFilters(new GlobalHttpExceptionFilter());
   const port = process.env.PORT ?? 3000;
   await app.listen(port, '0.0.0.0');
   Logger.log(
