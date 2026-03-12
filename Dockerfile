@@ -67,7 +67,7 @@ RUN --mount=type=cache,target=/root/.npm \
 
 EXPOSE 3000
 
-RUN mkdir -p /app/data \
+RUN mkdir -p /app/data /app/playground \
     && if [ "$AGENT_PROVIDER" = "gemini" ]; then \
     mkdir -p /home/node/.gemini && chown -R node:node /home/node/.gemini; \
     elif [ "$AGENT_PROVIDER" = "openai_codex" ]; then \
@@ -75,7 +75,7 @@ RUN mkdir -p /app/data \
     elif [ "$AGENT_PROVIDER" = "claude_code" ]; then \
     mkdir -p /home/node/.claude && chown -R node:node /home/node/.claude; \
     fi \
-    && chown -R node:node /app/data
+    && chown -R node:node /app/data /app/playground
 
 USER node
 
