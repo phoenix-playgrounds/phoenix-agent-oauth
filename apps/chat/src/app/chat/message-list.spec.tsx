@@ -76,4 +76,19 @@ describe('MessageList', () => {
     expect(screen.getByText(/Bold/)).toBeTruthy();
     expect(screen.getByText(/text/)).toBeTruthy();
   });
+
+  it('renders user message with @path as badge showing path display name', () => {
+    const messages: ChatMessage[] = [
+      {
+        role: 'user',
+        body: 'Check @apps/chat/readme.md please',
+        created_at: '2025-03-11T17:00:00.000Z',
+      },
+    ];
+    render(
+      <MessageList messages={messages} streamingText="" isStreaming={false} />
+    );
+    expect(screen.getByText('readme.md')).toBeTruthy();
+    expect(screen.getByTitle('apps/chat/readme.md')).toBeTruthy();
+  });
 });

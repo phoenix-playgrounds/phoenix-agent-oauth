@@ -1,0 +1,147 @@
+import { FileText, Folder } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { PlaygroundEntryItem } from './use-playground-files';
+
+const MAX_VISIBLE = 8;
+
+export function FileMentionDropdown({
+  open,
+  query,
+  entries,
+  onSelect,
+  onClose,
+  anchorRef,
+}: {
+  open: boolean;
+  query: string;
+  entries: PlaygroundEntryItem[];
+  onSelect: (path: string) => void;
+  onClose: () => void;
+  anchorRef: React.RefObject<HTMLDivElement | null>;
+}) {
+  const [highlightIndex, setHighlightIndex] = useState(0);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  const filtered = query.trim()
+    ? entries.filter(
+        (e) =>
+          e.path.toLowerCase().includes(query.trim().toLowerCase()) ||
+          e.name.toLowerCase().includes(query.trim().toLowerCase())
+      )
+    : entries;
+  const slice = filtered.slice(0, MAX_VISIBLE);
+  const hasMore = filtered.length > MAX_VISIBLE;
+
+  useEffect(() => {
+    setHighlightIndex(0);
+  }, [query, open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const el = listRef.current;
+    if (!el) return;
+    const child = el.children[highlightIndex] as HTMLElement | undefined;
+    child?.scrollIntoView({ block: 'nearest' });
+  }, [highlightIndex, open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+        return;
+      }
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setHighlightIndex((i) => (i < slice.length - 1 ? i + 1 : i));
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setHighlightIndex((i) => (i > 0 ? i - 1 : 0));
+        return;
+      }
+      const entry = slice[highlightIndex];
+      if (e.key === 'Enter' && entry) {
+        e.preventDefault();
+        onSelect(entry.path);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [open, onClose, onSelect, highlightIndex, slice]);
+
+  const handleSelect = useCallback(
+    (path: string) => {
+      onSelect(path);
+    },
+    [onSelect]
+  );
+
+  if (!open) return null;
+
+  return (
+    <div
+      ref={listRef}
+      className="absolute left-0 right-0 bottom-full z-50 mb-1 max-h-56 overflow-y-auto rounded-lg border border-border bg-card py-1 shadow-lg"
+      role="listbox"
+      aria-label="Link playground file"
+    >
+      {slice.length === 0 ? (
+        <div className="px-3 py-2 text-xs text-muted-foreground">
+          {entries.length === 0 ? 'No files or folders in playground' : 'No matching files or folders'}
+        </div>
+      ) : (
+        slice.map((entry, i) => (
+          <button
+            key={entry.path}
+            type="button"
+            role="option"
+            aria-selected={i === highlightIndex}
+            title={entry.path}
+            className={`flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-xs transition-colors ${
+              i === highlightIndex
+                ? 'bg-violet-500/15 text-foreground'
+                : 'text-foreground hover:bg-muted/60'
+            }`}
+            onMouseEnter={() => setHighlightIndex(i)}
+            onClick={() => handleSelect(entry.path)}
+          >
+            {entry.type === 'directory' ? (
+              <Folder className="size-3 shrink-0 text-violet-500/80" aria-hidden />
+            ) : (
+              <FileText className="size-3 shrink-0 text-violet-500/80" aria-hidden />
+            )}
+            <span className="min-w-0 truncate font-medium">{entry.name}</span>
+          </button>
+        ))
+      )}
+      {hasMore && (
+        <div className="border-t border-border px-3 py-1.5 text-[10px] text-muted-foreground">
+          +{filtered.length - MAX_VISIBLE} more — type to filter
+        </div>
+      )}
+    </div>
+  );
+}
+
+function looksLikeCompletePath(pathPart: string): boolean {
+  return pathPart.includes('/') || /\.[a-zA-Z0-9]{2,}$/.test(pathPart);
+}
+
+export function getAtMentionState(
+  value: string,
+  cursorOffset: number
+): { show: boolean; query: string; replaceStart: number } {
+  const beforeCursor = value.slice(0, cursorOffset);
+  const atIndex = beforeCursor.lastIndexOf('@');
+  if (atIndex === -1) return { show: false, query: '', replaceStart: -1 };
+  const afterAt = beforeCursor.slice(atIndex + 1);
+  if (afterAt.includes(' ') || afterAt.includes('\n')) return { show: false, query: '', replaceStart: -1 };
+  if (cursorOffset === value.length && /@[^\s@]+$/.test(value)) {
+    const pathPart = value.slice(value.lastIndexOf('@') + 1);
+    if (looksLikeCompletePath(pathPart)) return { show: false, query: '', replaceStart: -1 };
+  }
+  return { show: true, query: afterAt, replaceStart: atIndex };
+}

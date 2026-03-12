@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { OrchestratorService } from './orchestrator.service';
 import { MessageStoreService } from '../message-store/message-store.service';
 import { ModelStoreService } from '../model-store/model-store.service';
+import { PlaygroundsService } from '../playgrounds/playgrounds.service';
 import { StrategyRegistryService } from '../strategies/strategy-registry.service';
 import { UploadsService } from '../uploads/uploads.service';
 import { WS_ACTION, WS_EVENT, AUTH_STATUS } from '../ws.constants';
@@ -33,12 +34,18 @@ describe('OrchestratorService', () => {
     const modelStore = new ModelStoreService(config as never);
     const strategyRegistry = new StrategyRegistryService();
     const uploadsService = new UploadsService(config as never);
+    const playgroundsService = {
+      getFileContent: () => {
+        throw new Error('not found');
+      },
+    } as unknown as PlaygroundsService;
     const orch = new OrchestratorService(
       messageStore,
       modelStore,
       config as never,
       strategyRegistry,
-      uploadsService
+      uploadsService,
+      playgroundsService
     );
     await orch.onModuleInit();
     return orch;

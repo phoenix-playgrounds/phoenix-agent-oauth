@@ -40,7 +40,7 @@ When `AGENT_PASSWORD` is set, `GET /api/messages`, `GET /api/model-options`, `GE
 | cancel_auth        | —           | Cancel ongoing auth           |
 | reauthenticate     | —           | Clear credentials and re-auth |
 | logout             | —           | Log out from provider         |
-| send_chat_message  | `{ text, images?, audio?, audioFilename? }`  | Send user message; optional `images` (base64), optional `audio` (base64), or `audioFilename` (from POST /api/uploads); stream response  |
+| send_chat_message  | `{ text, images?, audio?, audioFilename? }`  | Send user message; optional `images` (base64), optional `audio` (base64), or `audioFilename` (from POST /api/uploads); stream response. Message text may contain `@path` references to playground files (e.g. `@src/index.ts`); the API injects those files’ contents into the prompt. |
 | get_model          | —           | Request current model          |
 | set_model          | `{ model }` | Set model name                 |
 

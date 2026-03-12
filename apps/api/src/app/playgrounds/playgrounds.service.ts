@@ -33,6 +33,39 @@ export class PlaygroundsService {
     return readFileSync(absPath, 'utf-8');
   }
 
+  getFolderFileContents(relativePath: string): { path: string; content: string }[] {
+    const base = resolve(this.config.getPlaygroundsDir());
+    const absPath = resolve(base, relativePath);
+    const rel = relative(base, absPath);
+    if (rel.startsWith('..') || absPath === base) {
+      throw new NotFoundException('Folder not found');
+    }
+    if (!existsSync(absPath) || !statSync(absPath).isDirectory()) {
+      throw new NotFoundException('Folder not found');
+    }
+    return this.collectFileContents(absPath, rel);
+  }
+
+  private collectFileContents(absPath: string, relPath: string): { path: string; content: string }[] {
+    const result: { path: string; content: string }[] = [];
+    const entries = readdirSync(absPath, { withFileTypes: true });
+    for (const e of entries) {
+      if (e.name.startsWith(HIDDEN_PREFIX)) continue;
+      const childRel = relPath ? `${relPath}/${e.name}` : e.name;
+      const childAbs = join(absPath, e.name);
+      if (e.isFile()) {
+        try {
+          result.push({ path: childRel, content: readFileSync(childAbs, 'utf-8') });
+        } catch {
+          /* skip unreadable files */
+        }
+      } else if (e.isDirectory()) {
+        result.push(...this.collectFileContents(childAbs, childRel));
+      }
+    }
+    return result;
+  }
+
   private readDir(absPath: string, relativePath: string): PlaygroundEntry[] {
     try {
       const entries = readdirSync(absPath, { withFileTypes: true });
