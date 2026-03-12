@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { FileExplorer, type PlaygroundEntry } from './file-explorer';
 
 vi.mock('../api-url', () => ({
@@ -154,7 +154,7 @@ describe('FileExplorer', () => {
     });
   });
 
-  it('opens AI Code Review dialog when file is clicked', async () => {
+  it('opens file viewer dialog when file is clicked', async () => {
     const tree: PlaygroundEntry[] = [
       { name: 'readme.md', path: 'readme.md', type: 'file' },
     ];
@@ -173,10 +173,10 @@ describe('FileExplorer', () => {
     await waitFor(() => {
       expect(screen.getByText('readme.md')).toBeTruthy();
     });
-    expect(screen.queryByRole('heading', { name: 'AI Code Review' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'File viewer' })).toBeNull();
     fireEvent.click(screen.getByText('readme.md'));
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'AI Code Review' })).toBeTruthy();
+      expect(screen.getByRole('heading', { name: 'File viewer' })).toBeTruthy();
     });
     expect(screen.getAllByText('readme.md').length).toBeGreaterThanOrEqual(1);
   });
@@ -247,7 +247,7 @@ describe('FileExplorer', () => {
     expect(onSettingsClick).toHaveBeenCalledTimes(1);
   });
 
-  it('shows diff content in dialog after file content is loaded', async () => {
+  it('shows file content in viewer after file is loaded', async () => {
     const tree: PlaygroundEntry[] = [
       { name: 'app.js', path: 'app.js', type: 'file' },
     ];
@@ -268,10 +268,145 @@ describe('FileExplorer', () => {
     });
     fireEvent.click(screen.getByText('app.js'));
     await waitFor(() => {
-      expect(screen.getByText('Git Diff Changes')).toBeTruthy();
+      expect(screen.getByRole('heading', { name: 'File viewer' })).toBeTruthy();
     });
     await waitFor(() => {
       expect(screen.getByText(/const x = 1;/)).toBeTruthy();
+    });
+  });
+
+  it('shows language label for known file extension in file viewer', async () => {
+    const tree: PlaygroundEntry[] = [
+      { name: 'readme.md', path: 'readme.md', type: 'file' },
+    ];
+    (fetch as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => tree,
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ content: '# Hi' }),
+      });
+    render(<FileExplorer />);
+    await waitFor(() => {
+      expect(screen.getByText('readme.md')).toBeTruthy();
+    });
+    fireEvent.click(screen.getByText('readme.md'));
+    await waitFor(() => {
+      expect(screen.getByText('markdown')).toBeTruthy();
+    });
+  });
+
+  it('shows Empty file when file content is empty', async () => {
+    const tree: PlaygroundEntry[] = [
+      { name: 'empty.txt', path: 'empty.txt', type: 'file' },
+    ];
+    (fetch as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => tree,
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ content: '' }),
+      });
+    render(<FileExplorer />);
+    await waitFor(() => {
+      expect(screen.getByText('empty.txt')).toBeTruthy();
+    });
+    fireEvent.click(screen.getByText('empty.txt'));
+    await waitFor(() => {
+      expect(screen.getByText('Empty file')).toBeTruthy();
+    });
+  });
+
+  it('shows error message in file viewer when file fetch fails', async () => {
+    const tree: PlaygroundEntry[] = [
+      { name: 'bad.txt', path: 'bad.txt', type: 'file' },
+    ];
+    (fetch as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => tree,
+      })
+      .mockRejectedValueOnce(new Error('Failed to load file'));
+    render(<FileExplorer />);
+    await waitFor(() => {
+      expect(screen.getByText('bad.txt')).toBeTruthy();
+    });
+    fireEvent.click(screen.getByText('bad.txt'));
+    await waitFor(() => {
+      expect(screen.getByText('Failed to load file')).toBeTruthy();
+    });
+  });
+
+  it('closes file viewer when Escape is pressed', async () => {
+    const tree: PlaygroundEntry[] = [
+      { name: 'a.js', path: 'a.js', type: 'file' },
+    ];
+    (fetch as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => tree,
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ content: 'x' }),
+      });
+    render(<FileExplorer />);
+    await waitFor(() => {
+      expect(screen.getByText('a.js')).toBeTruthy();
+    });
+    fireEvent.click(screen.getByText('a.js'));
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'File viewer' })).toBeTruthy();
+    });
+    fireEvent.keyDown(window, { key: 'Escape' });
+    await waitFor(() => {
+      expect(screen.queryByRole('heading', { name: 'File viewer' })).toBeNull();
+    });
+  });
+
+  it('disables Copy and Download while file is loading', async () => {
+    const tree: PlaygroundEntry[] = [
+      { name: 'slow.js', path: 'slow.js', type: 'file' },
+    ];
+    let resolveFile: (value: { ok: boolean; status: number; json: () => Promise<{ content: string }> }) => void;
+    const filePromise = new Promise<{ ok: boolean; status: number; json: () => Promise<{ content: string }> }>((resolve) => {
+      resolveFile = resolve;
+    });
+    (fetch as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => tree,
+      })
+      .mockReturnValueOnce(filePromise);
+    render(<FileExplorer />);
+    await waitFor(() => {
+      expect(screen.getByText('slow.js')).toBeTruthy();
+    });
+    fireEvent.click(screen.getByText('slow.js'));
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'File viewer' })).toBeTruthy();
+    });
+    expect(screen.getByRole('button', { name: 'Copy' }).hasAttribute('disabled')).toBe(true);
+    expect(screen.getByRole('button', { name: 'Download' }).hasAttribute('disabled')).toBe(true);
+    await act(async () => {
+      const resolve = resolveFile as (v: { ok: boolean; status: number; json: () => Promise<{ content: string }> }) => void;
+      resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({ content: 'done' }),
+      });
     });
   });
 });

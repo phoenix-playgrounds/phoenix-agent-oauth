@@ -1,6 +1,4 @@
 import {
-  AlertTriangle,
-  CheckCircle2,
   ChevronDown,
   ChevronRight,
   ChevronsDown,
@@ -13,16 +11,82 @@ import {
   Folder,
   FolderOpen,
   Image,
-  Info,
   Search,
   Settings,
-  Sparkles,
   X,
 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Prism from 'prismjs';
+import 'prismjs/themes/prism-tomorrow.css';
+import 'prismjs/plugins/line-numbers/prism-line-numbers';
+import 'prismjs/plugins/line-numbers/prism-line-numbers.css';
+import 'prismjs/components/prism-markup';
+import 'prismjs/components/prism-markup-templating';
+import 'prismjs/components/prism-css';
+import 'prismjs/components/prism-clike';
+import 'prismjs/components/prism-javascript';
+import 'prismjs/components/prism-typescript';
+import 'prismjs/components/prism-jsx';
+import 'prismjs/components/prism-tsx';
+import 'prismjs/components/prism-json';
+import 'prismjs/components/prism-bash';
+import 'prismjs/components/prism-python';
+import 'prismjs/components/prism-yaml';
+import 'prismjs/components/prism-sql';
+import 'prismjs/components/prism-scss';
+import 'prismjs/components/prism-ruby';
+import 'prismjs/components/prism-go';
+import 'prismjs/components/prism-rust';
+import 'prismjs/components/prism-java';
+import 'prismjs/components/prism-kotlin';
+import 'prismjs/components/prism-swift';
+import 'prismjs/components/prism-php';
+import 'prismjs/components/prism-csharp';
+import 'prismjs/components/prism-c';
+import 'prismjs/components/prism-cpp';
+import 'prismjs/components/prism-markdown';
 import { getApiUrl, getAuthTokenForRequest } from '../api-url';
 import { AnimatedPhoenixLogo } from '../animated-phoenix-logo';
 import { ThemeToggle } from '../theme-toggle';
+
+const PRISM_LANGUAGES: Record<string, string> = {
+  js: 'javascript',
+  jsx: 'jsx',
+  ts: 'typescript',
+  tsx: 'tsx',
+  css: 'css',
+  scss: 'scss',
+  sass: 'sass',
+  html: 'markup',
+  json: 'json',
+  md: 'markdown',
+  mdx: 'markdown',
+  py: 'python',
+  rb: 'ruby',
+  go: 'go',
+  rs: 'rust',
+  java: 'java',
+  kt: 'kotlin',
+  swift: 'swift',
+  php: 'php',
+  sql: 'sql',
+  yaml: 'yaml',
+  yml: 'yaml',
+  sh: 'bash',
+  bash: 'bash',
+  xml: 'markup',
+  vue: 'markup',
+  c: 'c',
+  cpp: 'cpp',
+  cs: 'csharp',
+  h: 'c',
+  hpp: 'cpp',
+};
+
+function getPrismLanguage(filename: string): string {
+  const ext = filename.includes('.') ? filename.slice(filename.lastIndexOf('.') + 1).toLowerCase() : '';
+  return PRISM_LANGUAGES[ext] ?? 'plain';
+}
 
 export interface PlaygroundEntry {
   name: string;
@@ -117,102 +181,6 @@ function FileTypeIcon({ name }: { name: string }) {
   return <Icon className={`size-3.5 shrink-0 ${color}`} aria-hidden />;
 }
 
-interface CodeReviewIssue {
-  type: 'error' | 'warning' | 'info' | 'success';
-  line?: number;
-  message: string;
-  suggestion?: string;
-}
-
-function mockCodeReview(fileName: string): CodeReviewIssue[] {
-  if (fileName.endsWith('.md')) {
-    return [
-      { type: 'success', message: 'Markdown syntax is valid' },
-      { type: 'info', message: 'Consider adding more section headings for better structure' },
-      { type: 'info', line: 5, message: 'This section could benefit from code examples' },
-    ];
-  }
-  if (fileName.endsWith('.json')) {
-    return [
-      { type: 'success', message: 'JSON structure is valid' },
-      { type: 'warning', line: 12, message: 'Consider using semantic versioning for version field' },
-    ];
-  }
-  return [
-    { type: 'success', message: 'Code structure looks good' },
-    {
-      type: 'warning',
-      line: 45,
-      message: 'Consider extracting this logic into a separate function',
-      suggestion: 'function extractedLogic() { ... }',
-    },
-    { type: 'info', line: 78, message: 'This variable could be renamed for better clarity' },
-    {
-      type: 'error',
-      line: 120,
-      message: 'Potential null reference error',
-      suggestion: 'Add null check before accessing property',
-    },
-  ];
-}
-
-function getIssueIcon(type: string) {
-  switch (type) {
-    case 'error':
-      return <AlertTriangle className="size-4 text-red-500" />;
-    case 'warning':
-      return <AlertTriangle className="size-4 text-amber-500" />;
-    case 'success':
-      return <CheckCircle2 className="size-4 text-green-500" />;
-    default:
-      return <Info className="size-4 text-blue-500" />;
-  }
-}
-
-function getIssueColor(type: string): string {
-  switch (type) {
-    case 'error':
-      return 'border-red-500/30 bg-red-500/5';
-    case 'warning':
-      return 'border-amber-500/30 bg-amber-500/5';
-    case 'success':
-      return 'border-green-500/30 bg-green-500/5';
-    default:
-      return 'border-blue-500/30 bg-blue-500/5';
-  }
-}
-
-function contentToUnifiedDiff(content: string): string {
-  const lines = content.split(/\r?\n/);
-  const n = lines.length;
-  if (n === 0) return '@@ -0,0 +0,0 @@';
-  return `@@ -0,0 +1,${n} @@\n${lines.map((l) => `+ ${l}`).join('\n')}`;
-}
-
-function renderDiffLine(line: string, index: number) {
-  const isAddition = line.startsWith('+') && !line.startsWith('+++');
-  const isDeletion = line.startsWith('-') && !line.startsWith('---');
-  const isHeader = line.startsWith('@@');
-  let className = 'flex px-4 py-0.5 ';
-  if (isHeader) {
-    className += 'bg-blue-500/10 text-blue-700 dark:text-blue-400 font-semibold';
-  } else if (isAddition) {
-    className += 'bg-green-500/10 text-green-700 dark:text-green-400';
-  } else if (isDeletion) {
-    className += 'bg-red-500/10 text-red-700 dark:text-red-400';
-  } else {
-    className += 'text-muted-foreground';
-  }
-  return (
-    <div key={index} className={className}>
-      <span className="select-none shrink-0 w-8 text-right pr-3 text-muted-foreground/70">
-        {index + 1}
-      </span>
-      <span className="min-w-0">{line}</span>
-    </div>
-  );
-}
-
 function FileDetailsDialog({
   entry,
   onClose,
@@ -223,6 +191,7 @@ function FileDetailsDialog({
   const [content, setContent] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const codeRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -238,9 +207,8 @@ function FileDetailsDialog({
     setFetchError(null);
     setContent(null);
     const base = getApiUrl();
-    const url = base
-      ? `${base}/api/playgrounds/file?path=${encodeURIComponent(entry.path)}`
-      : `/api/playgrounds/file?path=${encodeURIComponent(entry.path)}`;
+    const path = encodeURIComponent(entry.path);
+    const url = base ? `${base}/api/playgrounds/file?path=${path}` : `/api/playgrounds/file?path=${path}`;
     const token = getAuthTokenForRequest();
     const headers: Record<string, string> = {};
     if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -269,6 +237,11 @@ function FileDetailsDialog({
     };
   }, [entry.path]);
 
+  useEffect(() => {
+    if (!content || loading || fetchError || !codeRef.current) return;
+    Prism.highlightElement(codeRef.current);
+  }, [content, loading, fetchError]);
+
   const handleCopy = useCallback(() => {
     if (content === null) return;
     void navigator.clipboard.writeText(content);
@@ -284,14 +257,8 @@ function FileDetailsDialog({
     URL.revokeObjectURL(a.href);
   }, [content, entry.name]);
 
-  const issues = mockCodeReview(entry.name);
-  const errorCount = issues.filter((i) => i.type === 'error').length;
-  const warningCount = issues.filter((i) => i.type === 'warning').length;
-  const infoCount = issues.filter((i) => i.type === 'info').length;
-  const successCount = issues.filter((i) => i.type === 'success').length;
-  const diffContent =
-    content !== null && !loading && !fetchError ? contentToUnifiedDiff(content) : '';
-  const diffLines = diffContent ? diffContent.split('\n') : [];
+  const language = getPrismLanguage(entry.name);
+  const languageClass = language === 'plain' ? '' : `language-${language}`;
 
   return (
     <div
@@ -307,11 +274,11 @@ function FileDetailsDialog({
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-start gap-2 sm:gap-4 min-w-0">
               <div className="size-10 sm:size-12 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/30 shrink-0">
-                <Sparkles className="size-5 sm:size-6 text-white" />
+                <FileText className="size-5 sm:size-6 text-white" />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 sm:gap-3">
-                  <h2 className="text-xl font-semibold text-foreground">AI Code Review</h2>
+                  <h2 className="text-xl font-semibold text-foreground">File viewer</h2>
                   <button
                     type="button"
                     onClick={onClose}
@@ -324,146 +291,58 @@ function FileDetailsDialog({
                 <p className="text-sm text-muted-foreground mt-1 truncate" title={entry.name}>
                   {entry.name}
                 </p>
-                <div className="flex gap-3 mt-3 text-foreground">
-                  {errorCount > 0 && (
-                    <div className="flex items-center gap-1.5 text-xs">
-                      <div className="size-2 rounded-full bg-red-500" />
-                      <span>{errorCount} Error{errorCount !== 1 ? 's' : ''}</span>
-                    </div>
-                  )}
-                  {warningCount > 0 && (
-                    <div className="flex items-center gap-1.5 text-xs">
-                      <div className="size-2 rounded-full bg-amber-500" />
-                      <span>{warningCount} Warning{warningCount !== 1 ? 's' : ''}</span>
-                    </div>
-                  )}
-                  {infoCount > 0 && (
-                    <div className="flex items-center gap-1.5 text-xs">
-                      <div className="size-2 rounded-full bg-blue-500" />
-                      <span>{infoCount} Info</span>
-                    </div>
-                  )}
-                  {successCount > 0 && (
-                    <div className="flex items-center gap-1.5 text-xs">
-                      <div className="size-2 rounded-full bg-green-500" />
-                      <span>{successCount} Success</span>
-                    </div>
-                  )}
-                </div>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="flex-1 flex overflow-hidden min-h-0">
-          <div className="flex-1 flex flex-col border-r border-border-subtle min-h-0">
-            <div className="px-4 py-3 border-b border-border-subtle bg-muted/30 backdrop-blur-sm shrink-0 flex items-center justify-between">
-              <h3 className="text-sm font-medium text-foreground">Git Diff Changes</h3>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={handleCopy}
-                  disabled={content === null || loading}
-                  className="flex items-center gap-1.5 rounded-md px-2 py-1.5 h-7 text-xs text-muted-foreground hover:bg-violet-500/10 hover:text-violet-400 disabled:opacity-50"
-                >
-                  <Copy className="size-3" />
-                  Copy
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDownload}
-                  disabled={content === null || loading}
-                  className="flex items-center gap-1.5 rounded-md px-2 py-1.5 h-7 text-xs text-muted-foreground hover:bg-violet-500/10 hover:text-violet-400 disabled:opacity-50"
-                >
-                  <Download className="size-3" />
-                  Download
-                </button>
-              </div>
-            </div>
-            <div className="flex-1 overflow-auto min-h-0">
-              {loading && (
-                <div className="p-4 flex items-center justify-center text-sm text-muted-foreground">
-                  Loading…
-                </div>
-              )}
-              {fetchError && (
-                <div className="p-4 rounded-xl border border-border-subtle bg-muted/20 m-4 text-center">
-                  <p className="text-sm text-muted-foreground">{fetchError}</p>
-                </div>
-              )}
-              {!loading && !fetchError && diffLines.length === 0 && content !== null && (
-                <div className="p-4 text-sm text-muted-foreground">Empty file</div>
-              )}
-              {!loading && !fetchError && diffLines.length > 0 && (
-                <pre className="text-xs font-mono bg-muted/30 dark:bg-card/40 backdrop-blur-sm border-b border-border-subtle p-0 m-0 min-h-full">
-                  <code className="block">
-                    {diffLines.map((line, index) => renderDiffLine(line, index))}
-                  </code>
-                </pre>
-              )}
+        <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+          <div className="px-4 py-3 border-b border-border-subtle bg-muted/30 backdrop-blur-sm shrink-0 flex items-center justify-between">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              {language === 'plain' ? 'Plain text' : language}
+            </span>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleCopy}
+                disabled={content === null || loading}
+                className="flex items-center gap-1.5 rounded-md px-2 py-1.5 h-7 text-xs text-muted-foreground hover:bg-violet-500/10 hover:text-violet-400 disabled:opacity-50"
+              >
+                <Copy className="size-3" />
+                Copy
+              </button>
+              <button
+                type="button"
+                onClick={handleDownload}
+                disabled={content === null || loading}
+                className="flex items-center gap-1.5 rounded-md px-2 py-1.5 h-7 text-xs text-muted-foreground hover:bg-violet-500/10 hover:text-violet-400 disabled:opacity-50"
+              >
+                <Download className="size-3" />
+                Download
+              </button>
             </div>
           </div>
-
-          <div className="w-96 flex flex-col min-h-0 min-w-0 bg-muted/20 dark:bg-card/20 backdrop-blur-sm shrink-0">
-            <div className="px-4 py-3 border-b border-border-subtle bg-gradient-to-r from-violet-500/10 to-purple-500/10 backdrop-blur-sm shrink-0">
-              <h3 className="text-sm font-medium text-foreground">AI Analysis</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">Powered by Phoenix AI</p>
-            </div>
-            <div className="flex-1 overflow-auto min-h-0">
-              <div className="p-4 space-y-3">
-                {issues.map((issue, index) => (
-                  <div
-                    key={index}
-                    className={`p-4 rounded-xl border backdrop-blur-sm text-foreground ${getIssueColor(issue.type)}`}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="flex-shrink-0 mt-0.5">{getIssueIcon(issue.type)}</div>
-                      <div className="flex-1 min-w-0">
-                        {issue.line != null && (
-                          <div className="text-xs font-mono text-muted-foreground mb-1">
-                            Line {issue.line}
-                          </div>
-                        )}
-                        <p className="text-sm leading-relaxed text-foreground">{issue.message}</p>
-                        {issue.suggestion && (
-                          <div className="mt-2 p-2 bg-muted/80 rounded-lg border border-border-subtle">
-                            <p className="text-xs text-muted-foreground mb-1">Suggestion:</p>
-                            <code className="text-xs font-mono text-foreground">{issue.suggestion}</code>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                <div className="mt-6 p-4 rounded-xl bg-gradient-to-br from-violet-500/10 to-purple-500/10 border border-violet-500/20 backdrop-blur-sm text-foreground">
-                  <div className="flex items-start gap-3">
-                    <Sparkles className="size-5 text-violet-400 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <h4 className="font-medium mb-2 text-foreground">Overall Assessment</h4>
-                      <p className="text-sm text-muted-foreground leading-relaxed">
-                        Your code quality is good with minor improvements needed. The structure is
-                        solid, but consider the suggestions above to enhance maintainability and
-                        prevent potential issues.
-                      </p>
-                    </div>
-                  </div>
-                </div>
+          <div className="flex-1 overflow-auto min-h-0 bg-[#2d2d2d] dark:bg-[#1e1e1e]">
+            {loading && (
+              <div className="p-4 flex items-center justify-center text-sm text-muted-foreground">
+                Loading…
               </div>
-            </div>
-            <div className="p-4 border-t border-border-subtle space-y-2 backdrop-blur-sm">
-              <button
-                type="button"
-                className="w-full h-9 rounded-md bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white text-sm font-medium shadow-lg shadow-violet-500/20"
-              >
-                Apply Suggestions
-              </button>
-              <button
-                type="button"
-                className="w-full h-9 rounded-md border border-border hover:bg-muted/50 dark:border-violet-500/30 dark:hover:bg-violet-500/10 text-foreground text-sm font-medium"
-              >
-                Export Report
-              </button>
-            </div>
+            )}
+            {fetchError && (
+              <div className="p-4 rounded-xl border border-border-subtle bg-muted/20 m-4 text-center">
+                <p className="text-sm text-muted-foreground">{fetchError}</p>
+              </div>
+            )}
+            {!loading && !fetchError && content !== null && content.length > 0 && (
+              <pre className="line-numbers !m-0 !rounded-none !bg-transparent p-4 text-sm font-mono min-h-full">
+                <code ref={codeRef} className={languageClass}>
+                  {content}
+                </code>
+              </pre>
+            )}
+            {!loading && !fetchError && content !== null && content.length === 0 && (
+              <div className="p-4 text-sm text-muted-foreground">Empty file</div>
+            )}
           </div>
         </div>
       </div>
@@ -545,7 +424,7 @@ function TreeNode({
 }
 
 export function FileExplorer({
-  fullWidth,
+  fullWidth: _fullWidth,
   collapsed,
   onSettingsClick,
 }: {
@@ -633,12 +512,13 @@ export function FileExplorer({
     if (entry.type === 'file') setSelectedFile(entry);
   }, []);
 
-  const filteredTree = filterTreeByQuery(tree, searchQuery);
-
-  const playgroundLabel =
-    tree.length === 1 && tree[0].type === 'directory'
-      ? `${tree[0].name}/`
-      : PLAYGROUNDS_LABEL;
+  const filteredTree = useMemo(() => filterTreeByQuery(tree, searchQuery), [tree, searchQuery]);
+  const playgroundLabel = useMemo(
+    () => (tree.length === 1 && tree[0].type === 'directory' ? `${tree[0].name}/` : PLAYGROUNDS_LABEL),
+    [tree]
+  );
+  const openFileEntry =
+    selectedFile !== null && selectedFile.type === 'file' ? selectedFile : null;
 
   const toolbarBtnClass =
     'rounded-md text-[9px] sm:text-[10px] font-medium text-foreground dark:text-white hover:bg-violet-500/10 hover:text-violet-600 dark:hover:text-violet-400 transition-colors';
@@ -663,8 +543,8 @@ export function FileExplorer({
             </div>
           </div>
         </div>
-        {selectedFile?.type === 'file' && (
-          <FileDetailsDialog entry={selectedFile} onClose={() => setSelectedFile(null)} />
+        {openFileEntry && (
+          <FileDetailsDialog entry={openFileEntry} onClose={() => setSelectedFile(null)} />
         )}
       </>
     );
@@ -790,8 +670,8 @@ export function FileExplorer({
         )}
       </div>
       </div>
-      {selectedFile?.type === 'file' && (
-        <FileDetailsDialog entry={selectedFile} onClose={() => setSelectedFile(null)} />
+      {openFileEntry && (
+        <FileDetailsDialog entry={openFileEntry} onClose={() => setSelectedFile(null)} />
       )}
     </>
   );
