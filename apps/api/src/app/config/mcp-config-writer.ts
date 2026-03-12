@@ -104,7 +104,7 @@ const PROVIDER_WRITERS: Record<string, (envelope: McpEnvelope) => void> = {
 
     // Remove any existing [mcp_servers."playgrounds"] block
     const cleaned = existingContent
-      .replace(/\[mcp_servers\."playgrounds"\][^\[]*/gs, '')
+      .replace(/\[mcp_servers\."playgrounds"\][^[]*/gs, '')
       .trim();
 
     const tomlBlock = [
