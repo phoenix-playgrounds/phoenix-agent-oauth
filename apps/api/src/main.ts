@@ -6,6 +6,8 @@ import {
 } from '@nestjs/platform-fastify';
 import helmet from '@fastify/helmet';
 import multipart from '@fastify/multipart';
+import { mkdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { WebSocketServer } from 'ws';
 import { AppModule } from './app/app.module';
 import { ConfigService } from './app/config/config.service';
@@ -16,6 +18,10 @@ import { loadInjectedCredentials } from './credential-injector';
 
 const MULTIPART_LIMIT_BYTES = 20 * 1024 * 1024;
 const DEFAULT_PORT = 3000;
+
+// Ensure playground directory exists before anything tries to use it
+const playgroundsDir = process.env.PLAYGROUNDS_DIR ?? join(process.cwd(), 'playground');
+try { mkdirSync(playgroundsDir, { recursive: true }); } catch { /* ignore if it fails */ }
 
 async function bootstrap() {
   const injected = loadInjectedCredentials();
