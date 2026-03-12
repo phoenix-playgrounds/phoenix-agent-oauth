@@ -1,4 +1,4 @@
-import { Logger } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import {
   FastifyAdapter,
@@ -33,6 +33,9 @@ async function bootstrap() {
     ? process.env.CORS_ORIGINS.split(',').map((s) => s.trim()).filter(Boolean)
     : ['http://localhost:4200', 'http://localhost:4300'];
   app.enableCors({ origin: corsOrigins });
+  app.useGlobalPipes(
+    new ValidationPipe({ whitelist: true, transform: true })
+  );
   app.useGlobalFilters(new GlobalHttpExceptionFilter());
   const port = process.env.PORT ?? 3000;
   await app.listen(port, '0.0.0.0');
