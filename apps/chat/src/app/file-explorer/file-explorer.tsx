@@ -33,7 +33,7 @@ export interface PlaygroundEntry {
 
 const PLAYGROUNDS_LABEL = 'playground/';
 const SIDEBAR_TITLE = 'Quantum Storage';
-const SIDEBAR_SUBTITLE = 'Phoenix v2.4.1';
+const SIDEBAR_SUBTITLE = `Phoenix v${__APP_VERSION__}`;
 
 function getAllDirPaths(entries: PlaygroundEntry[]): string[] {
   const out: string[] = [];
@@ -635,6 +635,11 @@ export function FileExplorer({
 
   const filteredTree = filterTreeByQuery(tree, searchQuery);
 
+  const playgroundLabel =
+    tree.length === 1 && tree[0].type === 'directory'
+      ? `${tree[0].name}/`
+      : PLAYGROUNDS_LABEL;
+
   const toolbarBtnClass =
     'rounded-md text-[9px] sm:text-[10px] font-medium text-foreground dark:text-white hover:bg-violet-500/10 hover:text-violet-600 dark:hover:text-violet-400 transition-colors';
 
@@ -760,7 +765,7 @@ export function FileExplorer({
         )}
         {!loading && !error && tree.length === 0 && (
           <div className="px-3 py-2 text-xs text-muted-foreground">
-            No files in {PLAYGROUNDS_LABEL}
+            No files in {playgroundLabel}
           </div>
         )}
         {!loading && !error && tree.length > 0 && filteredTree.length === 0 && (
@@ -770,7 +775,7 @@ export function FileExplorer({
         )}
         {!loading && !error && filteredTree.length > 0 && (
           <div className="p-2">
-            <div className="px-2 py-1 text-[10px] text-muted-foreground font-medium">{PLAYGROUNDS_LABEL}</div>
+            <div className="px-2 py-1 text-[10px] text-muted-foreground font-medium">{playgroundLabel}</div>
             {filteredTree.map((entry) => (
               <TreeNode
                 key={entry.path}

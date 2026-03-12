@@ -68,6 +68,39 @@ describe('FileExplorer', () => {
     });
   });
 
+  it('shows single top-level directory name as label when tree has one dir', async () => {
+    const tree: PlaygroundEntry[] = [
+      {
+        name: 'zcss',
+        path: 'zcss',
+        type: 'directory',
+        children: [{ name: 'build.zig', path: 'zcss/build.zig', type: 'file' }],
+      },
+    ];
+    (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => tree,
+    });
+    render(<FileExplorer />);
+    await waitFor(() => {
+      expect(screen.getByText('zcss/')).toBeTruthy();
+    });
+    expect(screen.getByText('zcss')).toBeTruthy();
+  });
+
+  it('shows Phoenix version in sidebar', async () => {
+    (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => [] as PlaygroundEntry[],
+    });
+    render(<FileExplorer />);
+    await waitFor(() => {
+      expect(screen.getByText(/Phoenix v/)).toBeTruthy();
+    });
+  });
+
   it('renders file and directory entries from API', async () => {
     const tree: PlaygroundEntry[] = [
       { name: 'readme.md', path: 'readme.md', type: 'file' },

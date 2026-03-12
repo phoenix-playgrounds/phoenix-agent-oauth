@@ -8,6 +8,7 @@ describe('ConfigService', () => {
   beforeEach(() => {
     envBackup.AGENT_PASSWORD = process.env.AGENT_PASSWORD;
     envBackup.MODEL_OPTIONS = process.env.MODEL_OPTIONS;
+    envBackup.DEFAULT_MODEL = process.env.DEFAULT_MODEL;
     envBackup.DATA_DIR = process.env.DATA_DIR;
     envBackup.SYSTEM_PROMPT_PATH = process.env.SYSTEM_PROMPT_PATH;
     envBackup.PLAYGROUNDS_DIR = process.env.PLAYGROUNDS_DIR;
@@ -16,6 +17,7 @@ describe('ConfigService', () => {
   afterEach(() => {
     process.env.AGENT_PASSWORD = envBackup.AGENT_PASSWORD;
     process.env.MODEL_OPTIONS = envBackup.MODEL_OPTIONS;
+    process.env.DEFAULT_MODEL = envBackup.DEFAULT_MODEL;
     process.env.DATA_DIR = envBackup.DATA_DIR;
     process.env.SYSTEM_PROMPT_PATH = envBackup.SYSTEM_PROMPT_PATH;
     process.env.PLAYGROUNDS_DIR = envBackup.PLAYGROUNDS_DIR;
@@ -39,6 +41,24 @@ describe('ConfigService', () => {
   test('getModelOptions returns trimmed non-empty parts', () => {
     process.env.MODEL_OPTIONS = ' a , , b ';
     expect(new ConfigService().getModelOptions()).toEqual(['a', 'b']);
+  });
+
+  test('getDefaultModel returns DEFAULT_MODEL when set', () => {
+    process.env.DEFAULT_MODEL = 'pro';
+    process.env.MODEL_OPTIONS = 'flash,flash-lite';
+    expect(new ConfigService().getDefaultModel()).toBe('pro');
+  });
+
+  test('getDefaultModel returns first of MODEL_OPTIONS when DEFAULT_MODEL not set', () => {
+    delete process.env.DEFAULT_MODEL;
+    process.env.MODEL_OPTIONS = 'flash-lite,flash,pro';
+    expect(new ConfigService().getDefaultModel()).toBe('flash-lite');
+  });
+
+  test('getDefaultModel returns empty string when no options', () => {
+    delete process.env.DEFAULT_MODEL;
+    delete process.env.MODEL_OPTIONS;
+    expect(new ConfigService().getDefaultModel()).toBe('');
   });
 
   test('getDataDir returns DATA_DIR when set', () => {

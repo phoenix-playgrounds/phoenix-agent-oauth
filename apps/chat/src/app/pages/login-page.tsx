@@ -131,7 +131,7 @@ export function LoginPage() {
 
           <div className="mt-4 sm:mt-6 text-center">
             <p className="text-[10px] sm:text-xs text-violet-300/40">
-              Protected by Quantum Encryption • Phoenix v2.4.1
+              Protected by Quantum Encryption • Phoenix v{__APP_VERSION__}
             </p>
           </div>
         </div>

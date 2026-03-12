@@ -12,6 +12,13 @@ export class ConfigService {
     return raw.split(',').map((s: string) => s.trim()).filter(Boolean);
   }
 
+  getDefaultModel(): string {
+    const fromEnv = process.env.DEFAULT_MODEL?.trim();
+    if (fromEnv) return fromEnv;
+    const options = this.getModelOptions();
+    return options.length > 0 ? options[0] : '';
+  }
+
   getDataDir(): string {
     return process.env.DATA_DIR ?? join(process.cwd(), 'data');
   }
