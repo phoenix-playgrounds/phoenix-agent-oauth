@@ -16,6 +16,8 @@ import {
   WS_EVENT,
 } from '../ws.constants';
 
+import { writeMcpConfig } from '../config/mcp-config-writer';
+
 export interface OutboundEvent {
   type: string;
   data: Record<string, unknown>;
@@ -41,6 +43,7 @@ export class OrchestratorService implements OnModuleInit {
   }
 
   async onModuleInit(): Promise<void> {
+    writeMcpConfig();
     await this.initAuthStatus();
   }
 
