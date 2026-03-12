@@ -1,0 +1,302 @@
+import { useCallback, useEffect, useRef } from 'react';
+import { AT_MENTION_REGEX, isLikelyFile, pathDisplayName } from './mention-utils';
+
+type Segment = { type: 'text'; value: string } | { type: 'mention'; path: string };
+
+function parseToSegments(str: string): Segment[] {
+  if (!str) return [{ type: 'text', value: '' }];
+  const parts = str.split(AT_MENTION_REGEX);
+  const segments: Segment[] = [];
+  for (const p of parts) {
+    const m = p.match(/^@([^\s@]+)$/);
+    if (m) segments.push({ type: 'mention', path: m[1] ?? '' });
+    else segments.push({ type: 'text', value: p });
+  }
+  return segments;
+}
+
+function segmentsToStr(segments: Segment[]): string {
+  return segments
+    .map((s) => (s.type === 'text' ? s.value : `@${s.path}`))
+    .join('');
+}
+
+function readDomFromEl(el: HTMLElement): Segment[] {
+  const out: Segment[] = [];
+  for (const node of el.childNodes) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const v = node.textContent ?? '';
+      if (v) out.push({ type: 'text', value: v });
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      const span = node as HTMLElement;
+      const path = span.getAttribute('data-path');
+      if (path) out.push({ type: 'mention', path });
+      else out.push({ type: 'text', value: span.textContent ?? '' });
+    }
+  }
+  if (out.length === 0) return [{ type: 'text', value: '' }];
+  return out;
+}
+
+function getCaretOffset(root: Node, sel: Selection): number {
+  let offset = 0;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+  let node: Node | null = walker.currentNode;
+  while (node) {
+    if (node === sel.anchorNode) return offset + sel.anchorOffset;
+    if (node.nodeType === Node.TEXT_NODE) {
+      offset += (node.textContent ?? '').length;
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      const el = node as HTMLElement;
+      if (el.getAttribute?.('data-path')) offset += ('@' + (el.getAttribute('data-path') ?? '')).length;
+    }
+    node = walker.nextNode();
+  }
+  return offset;
+}
+
+function setCaretOffset(root: HTMLElement, targetOffset: number): void {
+  const sel = window.getSelection();
+  if (!sel) return;
+  let offset = 0;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+  let node: Node | null = walker.currentNode;
+  while (node) {
+    let len = 0;
+    if (node.nodeType === Node.TEXT_NODE) {
+      len = (node.textContent ?? '').length;
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      const el = node as HTMLElement;
+      if (el.getAttribute?.('data-path')) len = ('@' + (el.getAttribute('data-path') ?? '')).length;
+    }
+    if (offset + len >= targetOffset) {
+      const range = document.createRange();
+      if (node.nodeType === Node.TEXT_NODE) {
+        const pos = Math.min(targetOffset - offset, len);
+        range.setStart(node, pos);
+        range.collapse(true);
+      } else {
+        range.setStartAfter(node);
+        range.collapse(true);
+      }
+      sel.removeAllRanges();
+      sel.addRange(range);
+      return;
+    }
+    offset += len;
+    node = walker.nextNode();
+  }
+  const range = document.createRange();
+  range.selectNodeContents(root);
+  range.collapse(false);
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
+const CHIP_CLASS =
+  'group relative inline-flex items-center gap-1 rounded-full pl-1.5 pr-2 py-0.5 text-xs font-medium bg-violet-500/90 border border-violet-400/50 text-white shrink-0';
+
+function buildChipSpan(path: string, onRemove: () => void): HTMLSpanElement {
+  const span = document.createElement('span');
+  span.contentEditable = 'false';
+  span.setAttribute('data-path', path);
+  span.className = CHIP_CLASS;
+  span.title = path;
+  const icon = document.createElement('span');
+  icon.setAttribute('aria-hidden', 'true');
+  icon.className = 'chip-icon shrink-0 flex items-center';
+  icon.innerHTML = isLikelyFile(path)
+    ? '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>'
+    : '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>';
+  const label = document.createElement('span');
+  label.className = 'truncate max-w-[100px] sm:max-w-[120px]';
+  label.textContent = pathDisplayName(path);
+  const removeBtn = document.createElement('button');
+  removeBtn.type = 'button';
+  removeBtn.className =
+    'absolute top-1/2 -translate-y-1/2 right-[5px] opacity-0 group-hover:opacity-100 size-4 rounded-full flex items-center justify-center hover:bg-white/20 transition-opacity bg-violet-500/90 border border-violet-400/50';
+  removeBtn.setAttribute('aria-label', 'Remove');
+  removeBtn.innerHTML =
+    '<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+  removeBtn.onclick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onRemove();
+  };
+  span.appendChild(icon);
+  span.appendChild(label);
+  span.appendChild(removeBtn);
+  return span;
+}
+
+export function MentionInput({
+  value,
+  onChange,
+  onCursorChange,
+  onValueAndCursor,
+  placeholder,
+  disabled,
+  onKeyDown,
+  onPaste,
+  id,
+  className,
+  inputRef,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  onCursorChange?: (offset: number) => void;
+  onValueAndCursor?: (value: string, cursorOffset: number) => void;
+  placeholder?: string;
+  disabled?: boolean;
+  onKeyDown?: (e: React.KeyboardEvent) => void;
+  onPaste?: (e: React.ClipboardEvent) => void;
+  id?: string;
+  className?: string;
+  inputRef?: React.RefObject<HTMLDivElement | null>;
+}) {
+  const divRef = useRef<HTMLDivElement>(null);
+  const ref = inputRef ?? divRef;
+  const lastEmittedRef = useRef(value);
+  const savedCaretRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || value === lastEmittedRef.current) return;
+    lastEmittedRef.current = value;
+    const segments = parseToSegments(value);
+    el.innerHTML = '';
+    const isEmpty = segments.length === 1 && segments[0]?.type === 'text' && segments[0].value === '';
+    if (!isEmpty) {
+      for (const s of segments) {
+        if (s.type === 'text') {
+          el.appendChild(document.createTextNode(s.value));
+        } else {
+          const chipPath = s.path;
+          const onRemove = () => {
+            const root = ref.current;
+            if (!root) return;
+            const segs = readDomFromEl(root);
+            const next = segs.filter((seg) => seg.type !== 'mention' || seg.path !== chipPath);
+            const str = segmentsToStr(next);
+            lastEmittedRef.current = str;
+            onChange(str);
+          };
+          el.appendChild(buildChipSpan(chipPath, onRemove));
+        }
+      }
+    }
+    const totalLen = segmentsToStr(segments).length;
+    if (savedCaretRef.current !== null) {
+      setCaretOffset(el, Math.min(savedCaretRef.current, totalLen));
+      savedCaretRef.current = null;
+    } else {
+      setCaretOffset(el, totalLen);
+    }
+    onCursorChange?.(totalLen);
+  }, [value, onCursorChange, onChange, ref]);
+
+  const readDomToSegments = useCallback((): Segment[] => {
+    const el = ref.current;
+    if (!el) return [];
+    const out: Segment[] = [];
+    for (const node of el.childNodes) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        const v = node.textContent ?? '';
+        if (v) out.push({ type: 'text', value: v });
+      } else if (node.nodeType === Node.ELEMENT_NODE) {
+        const span = node as HTMLElement;
+        const path = span.getAttribute('data-path');
+        if (path) out.push({ type: 'mention', path });
+        else out.push({ type: 'text', value: span.textContent ?? '' });
+      }
+    }
+    if (out.length === 0) return [{ type: 'text', value: '' }];
+    return out;
+  }, [ref]);
+
+  const handleInput = useCallback(() => {
+    const next = readDomToSegments();
+    const str = segmentsToStr(next);
+    const sel = window.getSelection();
+    const offset = sel && ref.current?.contains(sel.anchorNode) ? getCaretOffset(ref.current, sel) : str.length;
+    if (str !== lastEmittedRef.current) {
+      savedCaretRef.current = sel && ref.current?.contains(sel.anchorNode) ? offset : null;
+      lastEmittedRef.current = str;
+      onChange(str);
+    }
+    if (onValueAndCursor) {
+      onValueAndCursor(str, offset);
+    } else {
+      onCursorChange?.(offset);
+    }
+  }, [readDomToSegments, onChange, onCursorChange, onValueAndCursor, ref]);
+
+  const handleSelect = useCallback(() => {
+    const sel = window.getSelection();
+    if (sel && ref.current?.contains(sel.anchorNode)) {
+      onCursorChange?.(getCaretOffset(ref.current, sel));
+    }
+  }, [onCursorChange, ref]);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Backspace' && ref.current) {
+        const sel = window.getSelection();
+        if (!sel || sel.anchorOffset !== 0 || !ref.current.contains(sel.anchorNode)) {
+          onKeyDown?.(e);
+          return;
+        }
+        let node: Node | null = sel.anchorNode;
+        while (node && node !== ref.current) {
+          const prev = node.previousSibling;
+          if (prev && prev.nodeType === Node.ELEMENT_NODE) {
+            const el = prev as HTMLElement;
+            const path = el.getAttribute('data-path');
+            if (path) {
+              const segs = readDomFromEl(ref.current);
+              let offset = 0;
+              for (const s of segs) {
+                if (s.type === 'mention' && s.path === path) break;
+                offset += s.type === 'text' ? s.value.length : 1 + s.path.length;
+              }
+              const next = segs.filter((s) => s.type !== 'mention' || s.path !== path);
+              const newVal = segmentsToStr(next);
+              savedCaretRef.current = offset;
+              if (onValueAndCursor) {
+                onValueAndCursor(newVal, offset);
+              } else {
+                lastEmittedRef.current = newVal;
+                onChange(newVal);
+                onCursorChange?.(offset);
+              }
+              e.preventDefault();
+              e.stopPropagation();
+              return;
+            }
+          }
+          node = node.parentNode;
+        }
+      }
+      onKeyDown?.(e);
+    },
+    [onChange, onCursorChange, onValueAndCursor, onKeyDown, ref]
+  );
+
+  return (
+    <div
+      ref={ref}
+      id={id}
+      contentEditable={!disabled}
+      suppressContentEditableWarning
+      role="textbox"
+      aria-multiline="true"
+      aria-label={placeholder}
+      data-placeholder={placeholder}
+      className={`min-h-[24px] max-h-32 overflow-y-auto py-2 outline-none resize-none text-xs sm:text-sm text-foreground [&:empty]:before:content-[attr(data-placeholder)] [&:empty]:before:text-muted-foreground ${className ?? ''}`}
+      onInput={handleInput}
+      onSelect={handleSelect}
+      onKeyDown={handleKeyDown}
+      onPaste={onPaste}
+    />
+  );
+}

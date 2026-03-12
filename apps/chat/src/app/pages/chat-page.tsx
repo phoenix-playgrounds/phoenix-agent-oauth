@@ -2,13 +2,16 @@ import { ImagePlus, Key, LogOut, Menu, Mic, Paperclip, Search, Send, X } from 'l
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthModal } from '../chat/auth-modal';
+import { FileMentionDropdown, getAtMentionState } from '../chat/file-mention-dropdown';
+import { MentionInput } from '../chat/mention-input';
 import { MessageList, type ChatMessage } from '../chat/message-list';
 import { ModelSelector } from '../chat/model-selector';
+import { useChatWebSocket } from '../chat/use-chat-websocket';
+import { usePlaygroundFiles } from '../chat/use-playground-files';
+import { useVoiceRecorder } from '../chat/use-voice-recorder';
 import { FileExplorer } from '../file-explorer/file-explorer';
 import { ThemeToggle } from '../theme-toggle';
 import { CHAT_STATES } from '../chat/chat-state';
-import { useChatWebSocket } from '../chat/use-chat-websocket';
-import { useVoiceRecorder } from '../chat/use-voice-recorder';
 import type { ServerMessage } from '../chat/chat-state';
 import {
   getApiUrl,
@@ -48,8 +51,15 @@ export function ChatPage() {
   const [pendingVoice, setPendingVoice] = useState<string | null>(null);
   const [pendingVoiceFilename, setPendingVoiceFilename] = useState<string | null>(null);
   const [voiceUploadError, setVoiceUploadError] = useState<string | null>(null);
+  const [inputState, setInputState] = useState({ value: '', cursor: 0 });
+  const inputValue = inputState.value;
+  const cursorOffset = inputState.cursor;
   const modelDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const chatInputRef = useRef<HTMLDivElement>(null);
+  const { entries: playgroundEntries } = usePlaygroundFiles();
+  const atMention = getAtMentionState(inputValue, cursorOffset);
+  const mentionOpen = atMention.show;
 
   const authenticated = isAuthenticated();
   useEffect(() => {
@@ -163,21 +173,20 @@ export function ChatPage() {
   );
 
   const handleSend = useCallback(() => {
-    const input = document.getElementById('chat-input') as HTMLTextAreaElement | null;
-    const text = input?.value?.trim();
+    const text = inputValue.trim();
     const hasVoice = !!pendingVoiceFilename || !!pendingVoice;
     if ((!text && !pendingImages.length && !hasVoice) || state !== CHAT_STATES.AUTHENTICATED) return;
     send({
       action: 'send_chat_message',
-      text: text ?? '',
+      text: text || '',
       ...(pendingImages.length ? { images: pendingImages } : {}),
       ...(pendingVoiceFilename ? { audioFilename: pendingVoiceFilename } : pendingVoice ? { audio: pendingVoice } : {}),
     });
-    if (input) input.value = '';
+    setInputState({ value: '', cursor: 0 });
     setPendingImages([]);
     setPendingVoice(null);
     setPendingVoiceFilename(null);
-  }, [send, state, pendingImages, pendingVoice, pendingVoiceFilename]);
+  }, [send, state, inputValue, pendingImages, pendingVoice, pendingVoiceFilename]);
 
   const addImage = useCallback((dataUrl: string) => {
     setPendingImages((prev) => (prev.length < MAX_PENDING_IMAGES ? [...prev, dataUrl] : prev));
@@ -232,11 +241,12 @@ export function ChatPage() {
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === 'Enter' && !e.shiftKey) {
+        if (mentionOpen) return;
         e.preventDefault();
         handleSend();
       }
     },
-    [handleSend]
+    [handleSend, mentionOpen]
   );
 
   const uploadVoiceFile = useCallback(async (blob: Blob): Promise<string | null> => {
@@ -254,13 +264,14 @@ export function ChatPage() {
   }, []);
 
   const handleVoiceToggle = useCallback(async () => {
-    const input = document.getElementById('chat-input') as HTMLTextAreaElement | null;
     if (voiceRecorder.isRecording) {
       const result = await voiceRecorder.stopRecording();
       if (result) {
-        if (result.transcript && input) {
-          const existing = input.value.trim();
-          input.value = existing ? `${existing} ${result.transcript}` : result.transcript;
+        if (result.transcript) {
+          setInputState((prev) => {
+            const next = prev.value.trim() ? `${prev.value.trim()} ${result.transcript}` : (result.transcript ?? '');
+            return { value: next, cursor: next.length };
+          });
         }
         if (result.blob.size > 0) {
           const reader = new FileReader();
@@ -599,19 +610,46 @@ export function ChatPage() {
                 >
                   <Paperclip className="size-3.5 sm:size-4" />
                 </button>
-                <textarea
-                  id="chat-input"
-                  className="flex-1 bg-transparent outline-none resize-none text-xs sm:text-sm py-2 min-h-[24px] max-h-32 text-foreground placeholder-muted-foreground disabled:opacity-50"
-                  placeholder={
-                    state === CHAT_STATES.AUTHENTICATED
-                      ? 'Ask me anything...'
-                      : 'Complete authentication to start chatting...'
-                  }
-                  rows={1}
-                  disabled={state !== CHAT_STATES.AUTHENTICATED}
-                  onKeyDown={handleKeyDown}
-                  onPaste={handlePaste}
-                />
+                <div className="relative flex-1 min-w-0">
+                  <MentionInput
+                    inputRef={chatInputRef}
+                    id="chat-input"
+                    value={inputValue}
+                    onChange={(v) => setInputState((prev) => ({ ...prev, value: v, cursor: v.length }))}
+                    onValueAndCursor={(v, c) => setInputState({ value: v, cursor: c })}
+                    onCursorChange={(c) => setInputState((prev) => ({ ...prev, cursor: c }))}
+                    placeholder={
+                      state === CHAT_STATES.AUTHENTICATED
+                        ? 'Ask me anything... (type @ to link a file)'
+                        : 'Complete authentication to start chatting...'
+                    }
+                    disabled={state !== CHAT_STATES.AUTHENTICATED}
+                    onKeyDown={handleKeyDown}
+                    onPaste={handlePaste}
+                    className="w-full bg-transparent"
+                  />
+                  <FileMentionDropdown
+                    open={mentionOpen}
+                    query={atMention.query}
+                    entries={playgroundEntries}
+                    anchorRef={chatInputRef}
+                    onSelect={(path) => {
+                      const newVal =
+                        inputValue.slice(0, atMention.replaceStart) +
+                        `@${path}` +
+                        inputValue.slice(cursorOffset);
+                      setInputState({ value: newVal, cursor: newVal.length });
+                      chatInputRef.current?.focus();
+                      setTimeout(() => chatInputRef.current?.focus(), 0);
+                    }}
+                    onClose={() => {
+                      const newVal =
+                        inputValue.slice(0, atMention.replaceStart) + inputValue.slice(cursorOffset);
+                      setInputState({ value: newVal, cursor: atMention.replaceStart });
+                      setTimeout(() => chatInputRef.current?.focus(), 0);
+                    }}
+                  />
+                </div>
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}

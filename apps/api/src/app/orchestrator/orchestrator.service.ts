@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { Subject } from 'rxjs';
 import { ConfigService } from '../config/config.service';
 import { MessageStoreService } from '../message-store/message-store.service';
+import { PlaygroundsService } from '../playgrounds/playgrounds.service';
 import { ModelStoreService } from '../model-store/model-store.service';
 import { UploadsService } from '../uploads/uploads.service';
 import type { AgentStrategy } from '../strategies/strategy.types';
@@ -33,7 +34,8 @@ export class OrchestratorService implements OnModuleInit {
     private readonly modelStore: ModelStoreService,
     private readonly config: ConfigService,
     private readonly strategyRegistry: StrategyRegistryService,
-    private readonly uploadsService: UploadsService
+    private readonly uploadsService: UploadsService,
+    private readonly playgroundsService: PlaygroundsService
   ) {
     this.strategy = this.strategyRegistry.resolveStrategy();
   }
@@ -235,7 +237,32 @@ export class OrchestratorService implements OnModuleInit {
       voiceContext = path ? `\n\nThe user attached a voice recording. File path: ${path}\n\n` : '';
     }
 
-    const fullPrompt = `${systemPrompt}${imageContext}${voiceContext}\n${text}`.trim();
+    const atPathRegex = /@([^\s@]+)/g;
+    const atPaths = [...new Set((text.match(atPathRegex) ?? []).map((m) => m.slice(1)))];
+    let fileContext = '';
+    if (atPaths.length) {
+      const blocks: string[] = [];
+      for (const relPath of atPaths) {
+        try {
+          const content = this.playgroundsService.getFileContent(relPath);
+          blocks.push(`--- ${relPath} ---\n${content}\n---`);
+        } catch {
+          try {
+            const files = this.playgroundsService.getFolderFileContents(relPath);
+            for (const { path: p, content } of files) {
+              blocks.push(`--- ${p} ---\n${content}\n---`);
+            }
+          } catch {
+            this.logger.warn(`Playground file or folder not found: ${relPath}`);
+          }
+        }
+      }
+      if (blocks.length) {
+        fileContext = `\n\nThe user referenced the following playground file(s)/folder(s). Contents:\n\n${blocks.join('\n\n')}\n\n`;
+      }
+    }
+
+    const fullPrompt = `${systemPrompt}${fileContext}${imageContext}${voiceContext}\n${text}`.trim();
     const model = this.modelStore.get();
 
     let accumulated = '';

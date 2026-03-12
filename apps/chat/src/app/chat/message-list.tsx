@@ -1,6 +1,37 @@
-import { Sparkles, User } from 'lucide-react';
+import { FileText, Folder, Sparkles, User } from 'lucide-react';
 import { marked } from 'marked';
 import { getApiUrl, getAuthTokenForRequest } from '../api-url';
+import { AT_MENTION_REGEX, isLikelyFile, pathDisplayName } from './mention-utils';
+
+function MessageBodyWithMentions({ body }: { body: string }) {
+  const parts = body.split(AT_MENTION_REGEX);
+  return (
+    <span className="whitespace-pre-wrap text-sm leading-relaxed inline-flex flex-wrap items-center gap-x-1.5 gap-y-1">
+      {parts.map((part, i) => {
+        const match = part.match(/^@([^\s@]+)$/);
+        if (match) {
+          const path = match[1];
+          const isFile = isLikelyFile(path);
+          return (
+            <span
+              key={`${i}-${path}`}
+              className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-xs font-medium bg-white/20 border border-white/30 text-violet-100 shadow-sm"
+              title={path}
+            >
+              {isFile ? (
+                <FileText className="size-3 shrink-0 opacity-90" aria-hidden />
+              ) : (
+                <Folder className="size-3 shrink-0 opacity-90" aria-hidden />
+              )}
+              <span className="truncate max-w-[120px] sm:max-w-[160px]">{pathDisplayName(path)}</span>
+            </span>
+          );
+        }
+        return <span key={i}>{part}</span>;
+      })}
+    </span>
+  );
+}
 
 export interface ChatMessage {
   id?: string;
@@ -77,7 +108,7 @@ export function MessageList({
                   : 'rounded-tl-sm bg-card/60 backdrop-blur-md border border-border-subtle shadow-lg text-card-foreground'
               }`}
             >
-              {msg.role === 'user' ? (
+                  {msg.role === 'user' ? (
                 <>
                   {msg.imageUrls?.length ? (
                     <div className="flex flex-col gap-2">
@@ -92,12 +123,10 @@ export function MessageList({
                           />
                         ))}
                       </div>
-                      {msg.body ? (
-                        <span className="whitespace-pre-wrap text-sm leading-relaxed">{msg.body}</span>
-                      ) : null}
+                      {msg.body ? <MessageBodyWithMentions body={msg.body} /> : null}
                     </div>
                   ) : (
-                    <span className="whitespace-pre-wrap text-sm leading-relaxed">{msg.body}</span>
+                    <MessageBodyWithMentions body={msg.body} />
                   )}
                   <p className="text-xs mt-1.5 sm:mt-2 text-violet-200">
                     {formatTime(msg.created_at)}

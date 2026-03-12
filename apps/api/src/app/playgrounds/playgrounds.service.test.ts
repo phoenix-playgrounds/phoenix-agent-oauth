@@ -102,4 +102,27 @@ describe('PlaygroundsService', () => {
     const service = new PlaygroundsService(config as never);
     expect(() => service.getFileContent('missing.txt')).toThrow(NotFoundException);
   });
+
+  test('getFolderFileContents returns all file contents under folder', () => {
+    mkdirSync(join(playgroundDir, 'docs'));
+    writeFileSync(join(playgroundDir, 'docs', 'a.md'), '# A');
+    writeFileSync(join(playgroundDir, 'docs', 'b.md'), '# B');
+    mkdirSync(join(playgroundDir, 'docs', 'nested'));
+    writeFileSync(join(playgroundDir, 'docs', 'nested', 'c.txt'), 'C');
+    const config = { getPlaygroundsDir: () => playgroundDir };
+    const service = new PlaygroundsService(config as never);
+    const result = service.getFolderFileContents('docs');
+    expect(result.length).toBe(3);
+    const paths = result.map((r) => r.path).sort();
+    expect(paths).toEqual(['docs/a.md', 'docs/b.md', 'docs/nested/c.txt']);
+    expect(result.find((r) => r.path === 'docs/a.md')?.content).toBe('# A');
+    expect(result.find((r) => r.path === 'docs/nested/c.txt')?.content).toBe('C');
+  });
+
+  test('getFolderFileContents throws NotFoundException for file path', () => {
+    writeFileSync(join(playgroundDir, 'file.txt'), '');
+    const config = { getPlaygroundsDir: () => playgroundDir };
+    const service = new PlaygroundsService(config as never);
+    expect(() => service.getFolderFileContents('file.txt')).toThrow(NotFoundException);
+  });
 });
