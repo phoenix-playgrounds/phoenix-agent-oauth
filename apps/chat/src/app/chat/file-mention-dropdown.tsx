@@ -65,11 +65,12 @@ export function FileMentionDropdown({
       const entry = slice[highlightIndex];
       if (e.key === 'Enter' && entry) {
         e.preventDefault();
+        e.stopPropagation();
         onSelect(entry.path);
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, [open, onClose, onSelect, highlightIndex, slice]);
 
   const handleSelect = useCallback(
@@ -128,6 +129,17 @@ export function FileMentionDropdown({
 
 function looksLikeCompletePath(pathPart: string): boolean {
   return pathPart.includes('/') || /\.[a-zA-Z0-9]{2,}$/.test(pathPart);
+}
+
+export function valueAfterAtMatchesEntry(
+  value: string,
+  entries: { path: string; name: string }[]
+): boolean {
+  const lastAt = value.lastIndexOf('@');
+  if (lastAt === -1) return false;
+  const token = value.slice(lastAt + 1).split(/[\s\n]/)[0] ?? '';
+  if (!token) return false;
+  return entries.some((e) => e.path === token || e.name === token);
 }
 
 export function getAtMentionState(

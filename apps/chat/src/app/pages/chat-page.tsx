@@ -1,8 +1,13 @@
 import { ImagePlus, Key, LogOut, Menu, Mic, Paperclip, Search, Send, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { AuthModal } from '../chat/auth-modal';
-import { FileMentionDropdown, getAtMentionState } from '../chat/file-mention-dropdown';
+import {
+  FileMentionDropdown,
+  getAtMentionState,
+  valueAfterAtMatchesEntry,
+} from '../chat/file-mention-dropdown';
 import { MentionInput } from '../chat/mention-input';
 import { MessageList, type ChatMessage } from '../chat/message-list';
 import { ModelSelector } from '../chat/model-selector';
@@ -59,7 +64,14 @@ export function ChatPage() {
   const chatInputRef = useRef<HTMLDivElement>(null);
   const { entries: playgroundEntries } = usePlaygroundFiles();
   const atMention = getAtMentionState(inputValue, cursorOffset);
-  const mentionOpen = atMention.show;
+  const [mentionDropdownClosedAfterSelect, setMentionDropdownClosedAfterSelect] = useState(false);
+  const mentionOpen =
+    atMention.show &&
+    !mentionDropdownClosedAfterSelect &&
+    !valueAfterAtMatchesEntry(inputValue, playgroundEntries);
+  useEffect(() => {
+    if (!atMention.show) setMentionDropdownClosedAfterSelect(false);
+  }, [atMention.show]);
 
   const authenticated = isAuthenticated();
   useEffect(() => {
@@ -248,6 +260,26 @@ export function ChatPage() {
     },
     [handleSend, mentionOpen]
   );
+
+  const handleMentionSelect = useCallback(
+    (path: string) => {
+      flushSync(() => setMentionDropdownClosedAfterSelect(true));
+      const newVal =
+        inputValue.slice(0, atMention.replaceStart) +
+        `@${path}` +
+        inputValue.slice(cursorOffset);
+      setInputState({ value: newVal, cursor: newVal.length });
+      chatInputRef.current?.focus();
+    },
+    [inputValue, cursorOffset, atMention.replaceStart]
+  );
+
+  const handleMentionClose = useCallback(() => {
+    const newVal =
+      inputValue.slice(0, atMention.replaceStart) + inputValue.slice(cursorOffset);
+    setInputState({ value: newVal, cursor: atMention.replaceStart });
+    chatInputRef.current?.focus();
+  }, [inputValue, cursorOffset, atMention.replaceStart]);
 
   const uploadVoiceFile = useCallback(async (blob: Blob): Promise<string | null> => {
     const base = getApiUrl();
@@ -633,21 +665,8 @@ export function ChatPage() {
                     query={atMention.query}
                     entries={playgroundEntries}
                     anchorRef={chatInputRef}
-                    onSelect={(path) => {
-                      const newVal =
-                        inputValue.slice(0, atMention.replaceStart) +
-                        `@${path}` +
-                        inputValue.slice(cursorOffset);
-                      setInputState({ value: newVal, cursor: newVal.length });
-                      chatInputRef.current?.focus();
-                      setTimeout(() => chatInputRef.current?.focus(), 0);
-                    }}
-                    onClose={() => {
-                      const newVal =
-                        inputValue.slice(0, atMention.replaceStart) + inputValue.slice(cursorOffset);
-                      setInputState({ value: newVal, cursor: atMention.replaceStart });
-                      setTimeout(() => chatInputRef.current?.focus(), 0);
-                    }}
+                    onSelect={handleMentionSelect}
+                    onClose={handleMentionClose}
                   />
                 </div>
                 <button
