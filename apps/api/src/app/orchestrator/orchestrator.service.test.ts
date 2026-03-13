@@ -59,7 +59,7 @@ describe('OrchestratorService', () => {
     orch.handleClientConnected();
     expect(events.length).toBe(1);
     expect(events[0].type).toBe(WS_EVENT.AUTH_STATUS);
-    expect(events[0].data.status).toBe(AUTH_STATUS.AUTHENTICATED);
+    expect(events[0].data.status).toBe(AUTH_STATUS.UNAUTHENTICATED);
   });
 
   test('handleClientMessage get_model sends model_updated', async () => {
@@ -102,6 +102,7 @@ describe('OrchestratorService', () => {
 
   test('handleClientMessage send_chat_message with audioFilename streams response', async () => {
     const orch = await createOrchestrator();
+    orch.isAuthenticated = true;
     const uploads = new UploadsService({ getDataDir: () => dataDir } as never);
     const filename = uploads.saveAudioFromBuffer(Buffer.from('audio'), 'audio/webm');
     const events: Array<{ type: string }> = [];
@@ -118,6 +119,7 @@ describe('OrchestratorService', () => {
 
   test('handleClientMessage send_chat_message with audio base64 saves and streams', async () => {
     const orch = await createOrchestrator();
+    orch.isAuthenticated = true;
     const dataUrl = 'data:audio/webm;base64,' + Buffer.from('voice').toString('base64');
     const events: Array<{ type: string }> = [];
     orch.outbound.subscribe((ev) => events.push(ev));

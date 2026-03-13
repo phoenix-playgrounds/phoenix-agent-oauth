@@ -44,7 +44,6 @@ export class OrchestratorService implements OnModuleInit {
 
   async onModuleInit(): Promise<void> {
     writeMcpConfig();
-    await this.initAuthStatus();
   }
 
   get outbound(): Subject<OutboundEvent> {
