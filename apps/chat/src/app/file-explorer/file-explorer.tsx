@@ -295,6 +295,18 @@ function filterTreeByQuery(entries: PlaygroundEntry[], query: string): Playgroun
   return entries.map(build).filter((e): e is PlaygroundEntry => e != null);
 }
 
+const LANGUAGE_LABEL: Record<string, string> = {
+  plain: 'Plain text',
+  markdown: 'Markdown',
+  javascript: 'JavaScript',
+  typescript: 'TypeScript',
+  json: 'JSON',
+  html: 'HTML',
+  css: 'CSS',
+  python: 'Python',
+  bash: 'Bash',
+};
+
 export function FileViewerPanel({
   entry,
   onClose,
@@ -307,6 +319,7 @@ export function FileViewerPanel({
   const [content, setContent] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [searchInFile, setSearchInFile] = useState('');
   const codeRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -357,6 +370,8 @@ export function FileViewerPanel({
 
   const language = getPrismLanguage(entry.name);
   const languageClass = language === 'plain' ? '' : `language-${language}`;
+  const languageLabel = LANGUAGE_LABEL[language] ?? (language === 'plain' ? 'Plain text' : language);
+  const lineCount = content !== null ? content.split('\n').length : null;
 
   useEffect(() => {
     if (!content || loading || fetchError || !codeRef.current || language === 'plain') return;
@@ -388,38 +403,23 @@ export function FileViewerPanel({
       style={inline ? undefined : { backgroundColor: 'var(--card)' }}
       onClick={inline ? undefined : (e) => e.stopPropagation()}
     >
-      <div className="p-4 sm:p-6 border-b border-border/50 bg-gradient-to-r from-violet-500/10 via-purple-500/5 to-violet-500/10 backdrop-blur-sm shrink-0">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-start gap-2 sm:gap-4 min-w-0">
-            <div className="size-10 sm:size-12 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/30 shrink-0">
-              <FileText className="size-5 sm:size-6 text-white" />
+      <div className="px-4 pt-4 pb-[11px] border-b border-border/50 bg-card/40 backdrop-blur-xl shrink-0">
+        <div className="flex items-center justify-between gap-2 mb-2 min-w-0">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <div className="size-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/30 shrink-0">
+              <FileText className="size-5 text-white" />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 sm:gap-3">
-                <h2 className="text-xl font-semibold text-foreground">File viewer</h2>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="size-8 rounded-full hover:bg-muted/50 flex items-center justify-center text-muted-foreground hover:text-foreground shrink-0"
-                  aria-label="Close"
-                >
-                  <X className="size-4" />
-                </button>
-              </div>
-              <p className="text-sm text-muted-foreground mt-1 truncate" title={entry.name}>
+              <h2 className="font-semibold text-sm text-foreground truncate" title={entry.name}>
                 {entry.name}
+              </h2>
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                {languageLabel}
+                {lineCount !== null ? ` - ${lineCount} lines` : ''}
               </p>
             </div>
           </div>
-        </div>
-      </div>
-
-      <div className="flex-1 flex flex-col overflow-hidden min-h-0">
-        <div className="px-4 py-3 border-b border-border/50 bg-muted/30 backdrop-blur-sm shrink-0 flex items-center justify-between">
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-            {language === 'plain' ? 'Plain text' : language}
-          </span>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
               onClick={handleCopy}
@@ -438,8 +438,39 @@ export function FileViewerPanel({
               <Download className="size-3" />
               Download
             </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="size-8 rounded-md flex items-center justify-center text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+              aria-label="Close"
+            >
+              <X className="size-4" />
+            </button>
           </div>
         </div>
+        <div className="relative h-8">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+          <input
+            type="text"
+            value={searchInFile}
+            onChange={(e) => setSearchInFile(e.target.value)}
+            placeholder="Search in file..."
+            className="h-8 w-full pl-8 pr-8 text-xs rounded-md bg-input-background dark:bg-input/30 border border-border focus:border-violet-500 dark:focus:border-primary text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-violet-500/20 dark:focus:ring-primary/30"
+          />
+          {searchInFile && (
+            <button
+              type="button"
+              onClick={() => setSearchInFile('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              aria-label="Clear search"
+            >
+              <X className="size-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="flex-1 flex flex-col overflow-hidden min-h-0">
         <div className="flex-1 overflow-auto min-h-0 bg-[#2d2d2d] dark:bg-[#1e1e1e]">
           {loading && (
             <div className="p-4 flex items-center justify-center text-sm text-muted-foreground">

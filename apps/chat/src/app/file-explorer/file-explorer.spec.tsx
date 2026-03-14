@@ -173,10 +173,10 @@ describe('FileExplorer', () => {
     await waitFor(() => {
       expect(screen.getByText('readme.md')).toBeTruthy();
     });
-    expect(screen.queryByRole('heading', { name: 'File viewer' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'readme.md' })).toBeNull();
     fireEvent.click(screen.getByText('readme.md'));
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'File viewer' })).toBeTruthy();
+      expect(screen.getByRole('heading', { name: 'readme.md' })).toBeTruthy();
     });
     expect(screen.getAllByText('readme.md').length).toBeGreaterThanOrEqual(1);
   });
@@ -297,7 +297,7 @@ describe('FileExplorer', () => {
     });
     fireEvent.click(screen.getByText('app.js'));
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'File viewer' })).toBeTruthy();
+      expect(screen.getByRole('heading', { name: 'app.js' })).toBeTruthy();
     });
     await waitFor(() => {
       expect(screen.getByText(/const x = 1;/)).toBeTruthy();
@@ -325,7 +325,7 @@ describe('FileExplorer', () => {
     });
     fireEvent.click(screen.getByText('readme.md'));
     await waitFor(() => {
-      expect(screen.getByText('markdown')).toBeTruthy();
+      expect(screen.getByText(/Markdown/)).toBeTruthy();
     });
   });
 
@@ -476,11 +476,11 @@ describe('FileExplorer', () => {
     });
     fireEvent.click(screen.getByText('f.js'));
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'File viewer' })).toBeTruthy();
+      expect(screen.getByRole('heading', { name: 'f.js' })).toBeTruthy();
     });
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     await waitFor(() => {
-      expect(screen.queryByRole('heading', { name: 'File viewer' })).toBeNull();
+      expect(screen.queryByRole('heading', { name: 'f.js' })).toBeNull();
     });
   });
 
@@ -505,11 +505,11 @@ describe('FileExplorer', () => {
     });
     fireEvent.click(screen.getByText('a.js'));
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'File viewer' })).toBeTruthy();
+      expect(screen.getByRole('heading', { name: 'a.js' })).toBeTruthy();
     });
     fireEvent.keyDown(window, { key: 'Escape' });
     await waitFor(() => {
-      expect(screen.queryByRole('heading', { name: 'File viewer' })).toBeNull();
+      expect(screen.queryByRole('heading', { name: 'a.js' })).toBeNull();
     });
   });
 
@@ -534,7 +534,7 @@ describe('FileExplorer', () => {
     });
     fireEvent.click(screen.getByText('slow.js'));
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'File viewer' })).toBeTruthy();
+      expect(screen.getByRole('heading', { name: 'slow.js' })).toBeTruthy();
     });
     expect(screen.getByRole('button', { name: 'Copy' }).hasAttribute('disabled')).toBe(true);
     expect(screen.getByRole('button', { name: 'Download' }).hasAttribute('disabled')).toBe(true);

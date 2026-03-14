@@ -115,22 +115,22 @@ export function AgentThinkingSidebar({
       <div className="p-4 border-b border-violet-500/20 shrink-0">
         {!isCollapsed ? (
           <>
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <div className="relative">
+            <div className="flex items-center justify-between gap-2 mb-2 min-w-0">
+              <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
+                <div className="relative shrink-0">
                   <Brain className="size-5 text-violet-400" />
                   <Sparkles className="size-3 text-violet-300 absolute -top-1 -right-1 animate-pulse" />
                 </div>
-                <div>
-                  <h2 className="font-semibold text-sm">Agent Thinking</h2>
-                  <p className="text-[10px] text-muted-foreground">
+                <div className="min-w-0">
+                  <h2 className="font-semibold text-sm truncate">Agent Thinking</h2>
+                  <p className="text-[10px] text-muted-foreground truncate">
                     {isStreaming ? 'Processing' : 'Idle'}
                   </p>
                 </div>
               </div>
               <button
                 type="button"
-                className="text-xs bg-card/50 backdrop-blur-sm border border-border/50 h-auto py-1 px-2 rounded-md"
+                className="shrink-0 text-xs bg-card/50 backdrop-blur-sm border border-border/50 h-auto py-1 px-2 rounded-md"
               >
                 Model (default)
               </button>
