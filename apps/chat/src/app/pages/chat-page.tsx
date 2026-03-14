@@ -402,6 +402,16 @@ export function ChatPage() {
 
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
 
+  const filteredMessages = useMemo(
+    () =>
+      searchQuery.trim() === ''
+        ? messages
+        : messages.filter((m) =>
+            m.body?.toLowerCase().includes(searchQuery.trim().toLowerCase())
+          ),
+    [messages, searchQuery]
+  );
+
   if (!authenticated) {
     return null;
   }
@@ -419,16 +429,6 @@ export function ChatPage() {
   const showAuthModal =
     state === CHAT_STATES.AUTH_PENDING &&
     !!(authModal.authUrl || authModal.deviceCode || authModal.isManualToken);
-
-  const filteredMessages = useMemo(
-    () =>
-      searchQuery.trim() === ''
-        ? messages
-        : messages.filter((m) =>
-            m.body?.toLowerCase().includes(searchQuery.trim().toLowerCase())
-          ),
-    [messages, searchQuery]
-  );
 
   return (
     <div className="flex h-screen w-full min-h-0 overflow-hidden bg-gradient-to-br from-background via-background to-violet-950/10">
@@ -693,6 +693,8 @@ export function ChatPage() {
             </button>
           )}
         </div>
+          </>
+        )}
         <div className="shrink-0 p-3 sm:p-4 md:p-6 border-t border-border bg-card/30 backdrop-blur-sm">
             <div className="max-w-4xl flex flex-col gap-2">
               {(pendingImages.length > 0 || pendingVoice) && (
@@ -828,8 +830,6 @@ export function ChatPage() {
               </div>
             </div>
         </div>
-          </>
-        )}
       </main>
       {!isMobile && (
         <AgentThinkingSidebar
