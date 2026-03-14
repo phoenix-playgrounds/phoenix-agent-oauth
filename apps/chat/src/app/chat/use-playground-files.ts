@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { getApiUrl, getAuthTokenForRequest } from '../api-url';
+
+const REFETCH_WHEN_EMPTY_MS = 8000;
 
 export interface PlaygroundEntryItem {
   path: string;
@@ -71,6 +73,22 @@ export function usePlaygroundFiles(): {
   useEffect(() => {
     void refetch();
   }, [refetch]);
+
+  useEffect(() => {
+    if (entries.length > 0 || loading) return;
+    const id = setInterval(() => void refetch(), REFETCH_WHEN_EMPTY_MS);
+    return () => clearInterval(id);
+  }, [entries.length, loading, refetch]);
+
+  const refetchRef = useRef(refetch);
+  refetchRef.current = refetch;
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') refetchRef.current();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, []);
 
   return { entries, loading, error, refetch };
 }
