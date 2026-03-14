@@ -58,6 +58,10 @@ export class OrchestratorService implements OnModuleInit {
     this.outbound$.next({ type, data });
   }
 
+  ensureStrategySettings(): void {
+    this.strategy.ensureSettings?.();
+  }
+
 
   async handleClientMessage(msg: {
     action: string;
@@ -267,7 +271,7 @@ export class OrchestratorService implements OnModuleInit {
       });
 
       const finalText =
-        accumulated || 'Process completed successfully but returned no output.';
+        accumulated || 'The agent produced no visible output.';
       this.messageStore.add('assistant', finalText);
       this._send(WS_EVENT.STREAM_END, {});
     } catch (err) {
