@@ -14,6 +14,7 @@ export interface LogoutConnection {
 }
 
 export interface AgentStrategy {
+  ensureSettings?(): void;
   executeAuth(connection: AuthConnection): void;
   submitAuthCode(code: string): void;
   cancelAuth(): void;

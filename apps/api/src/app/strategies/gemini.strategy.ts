@@ -12,7 +12,7 @@ export class GeminiStrategy implements AgentStrategy {
   private activeAuthProcess: ReturnType<typeof spawn> | null = null;
   private currentConnection: AuthConnection | null = null;
   private _hasSession = false;
-  private ensureSettings(): void {
+  ensureSettings(): void {
     if (!existsSync(GEMINI_CONFIG_DIR)) {
       mkdirSync(GEMINI_CONFIG_DIR, { recursive: true });
     }
@@ -201,6 +201,7 @@ export class GeminiStrategy implements AgentStrategy {
     onChunk: (chunk: string) => void
   ): Promise<void> {
     return new Promise((resolve, reject) => {
+      this.ensureSettings();
       const playgroundDir = join(process.cwd(), 'playground');
       if (!existsSync(playgroundDir)) {
         mkdirSync(playgroundDir, { recursive: true });
