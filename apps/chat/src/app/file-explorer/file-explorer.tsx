@@ -247,6 +247,7 @@ export interface PlaygroundEntry {
 
 const PLAYGROUNDS_LABEL = 'playground/';
 const SIDEBAR_TITLE = 'Standalone';
+const REFETCH_WHEN_EMPTY_MS = 8000;
 const SIDEBAR_SUBTITLE = `Phoenix v${__APP_VERSION__}`;
 
 function getDirPathsAtDepth(entries: PlaygroundEntry[], depth: number): string[] {
@@ -623,38 +624,56 @@ export function FileExplorer({
     ? (tree.length > 0 ? findEntryByPath(tree, selectedPathProp ?? '') : null)
     : selectedFileLocal;
 
-  useEffect(() => {
-    const ac = new AbortController();
+  const refetch = useCallback(async (signal?: AbortSignal) => {
+    setLoading(true);
     const base = getApiUrl();
     const url = base ? `${base}/api/playgrounds` : '/api/playgrounds';
     const token = getAuthTokenForRequest();
     const headers: Record<string, string> = {};
     if (token) headers['Authorization'] = `Bearer ${token}`;
-
-    (async () => {
-      try {
-        const res = await fetch(url, { headers, signal: ac.signal });
-        if (res.status === 401) {
-          setTree([]);
-          return;
-        }
-        if (!res.ok) throw new Error('Failed to load playgrounds');
-        const data = (await res.json()) as PlaygroundEntry[];
-        const list = Array.isArray(data) ? data : [];
-        setTree(list);
-        setError(null);
-        if (list.length > 0) {
-          setExpanded(new Set(getDirPathsAtDepth(list, 0)));
-        }
-      } catch (e) {
-        if ((e as Error).name === 'AbortError') return;
+    try {
+      const res = await fetch(url, { headers, signal });
+      if (res.status === 401) {
         setTree([]);
-        setError(e instanceof Error ? e.message : 'Failed to load');
-      } finally {
-        setLoading(false);
+        return;
       }
-    })();
+      if (!res.ok) throw new Error('Failed to load playgrounds');
+      const data = (await res.json()) as PlaygroundEntry[];
+      const list = Array.isArray(data) ? data : [];
+      setTree(list);
+      setError(null);
+      if (list.length > 0) {
+        setExpanded((prev) => new Set(getDirPathsAtDepth(list, 0)));
+      }
+    } catch (e) {
+      if ((e as Error).name === 'AbortError') return;
+      setTree([]);
+      setError(e instanceof Error ? e.message : 'Failed to load');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const ac = new AbortController();
+    void refetch(ac.signal);
     return () => ac.abort();
+  }, [refetch]);
+
+  useEffect(() => {
+    if (tree.length > 0 || loading) return;
+    const id = setInterval(() => void refetch(), REFETCH_WHEN_EMPTY_MS);
+    return () => clearInterval(id);
+  }, [tree.length, loading, refetch]);
+
+  const refetchRef = useRef(refetch);
+  refetchRef.current = refetch;
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') refetchRef.current();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
   }, []);
 
   const handleToggle = useCallback((path: string) => {

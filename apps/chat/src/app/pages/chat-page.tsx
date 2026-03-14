@@ -524,7 +524,7 @@ export function ChatPage() {
           </div>
         </>
       )}
-      {hasPlaygroundFiles && !isMobile && (
+      {!isMobile && (
         <div
           className="flex min-h-0 flex-shrink-0 flex-col overflow-visible transition-[width] duration-300 ease-out"
           style={{ width: sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH_PX : SIDEBAR_WIDTH_PX }}
@@ -670,9 +670,7 @@ export function ChatPage() {
                 lastUserMessage={state === CHAT_STATES.AWAITING_RESPONSE ? lastSentMessage : null}
                 scrollRef={scroll.scrollRef}
                 bothSidebarsCollapsed={
-                  !isMobile &&
-                  (hasPlaygroundFiles ? sidebarCollapsed : true) &&
-                  rightSidebarCollapsed
+                  !isMobile && sidebarCollapsed && rightSidebarCollapsed
                 }
               />
               <div ref={scroll.endRef} />
