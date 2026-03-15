@@ -725,7 +725,7 @@ export function ChatPage() {
           className="flex shrink-0 flex-col border-b border-border/50 bg-card/40 backdrop-blur-xl px-4 pt-4"
           style={{ paddingBottom: CHAT_HEADER_PADDING_BOTTOM_PX }}
         >
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-1 min-h-[3.25rem]">
             <div className="flex items-center gap-2 min-w-0 flex-1">
               <div className="flex items-center gap-1.5 shrink-0 lg:hidden">
                 <button
@@ -790,23 +790,23 @@ export function ChatPage() {
               )}
             </div>
           </div>
-          <div className="relative h-8">
-            <Search className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 size-3.5 sm:size-4 text-muted-foreground pointer-events-none" />
+          <div className="relative h-8 mt-[5px]">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" aria-hidden />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search in conversation..."
-              className="w-full h-8 pl-8 sm:pl-10 pr-8 sm:pr-10 text-xs sm:text-sm rounded-md bg-input-background dark:bg-input/30 border border-border focus:border-violet-500 dark:focus:border-primary text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-violet-500/20 dark:focus:ring-primary/30"
+              className="w-full h-8 pl-8 pr-8 text-xs rounded-md bg-input-background dark:bg-input/30 border border-border text-foreground placeholder-muted-foreground focus:outline-none focus:border-violet-500 dark:focus:border-primary focus:ring-2 focus:ring-violet-500/20 dark:focus:ring-primary/30"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 sm:right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 aria-label="Clear search"
               >
-                <X className="size-3.5 sm:size-4" />
+                <X className="size-3.5" />
               </button>
             )}
           </div>

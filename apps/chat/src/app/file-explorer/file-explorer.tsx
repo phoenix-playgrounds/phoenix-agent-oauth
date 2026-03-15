@@ -735,7 +735,7 @@ export function FileExplorer({
   const expandedContent = (
     <div className="min-h-0 flex w-full flex-1 flex-col bg-card/30 backdrop-blur-xl border-r border-border/50">
       <div className="p-4 border-b border-border/50 bg-gradient-to-br from-violet-500/10 via-transparent to-purple-500/5 backdrop-blur-sm shrink-0">
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between mb-2 min-h-[3.25rem]">
           <div className="flex items-center gap-2">
             <AnimatedPhoenixLogo className="size-7 sm:size-8 text-violet-500" />
             <div>
@@ -766,14 +766,14 @@ export function FileExplorer({
             )}
           </div>
         </div>
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3 sm:size-3.5 text-muted-foreground pointer-events-none" />
+        <div className="relative h-8 mt-2">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" aria-hidden />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search files..."
-            className={`w-full h-8 pl-7 sm:pl-8 text-[11px] sm:text-xs rounded-md bg-input-background dark:bg-input/30 border border-border text-foreground placeholder-muted-foreground focus:outline-none focus:border-violet-500 dark:focus:border-primary focus:ring-2 focus:ring-violet-500/20 dark:focus:ring-primary/30 ${searchQuery ? 'pr-7 sm:pr-8' : 'pr-2'}`}
+            className="w-full h-8 pl-8 pr-8 text-xs rounded-md bg-input-background dark:bg-input/30 border border-border text-foreground placeholder-muted-foreground focus:outline-none focus:border-violet-500 dark:focus:border-primary focus:ring-2 focus:ring-violet-500/20 dark:focus:ring-primary/30"
           />
           {searchQuery && (
             <button

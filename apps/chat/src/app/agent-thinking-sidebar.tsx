@@ -8,6 +8,7 @@ import {
   Sparkles,
   Terminal,
   X,
+  Zap,
 } from 'lucide-react';
 import { useRef, useEffect, useMemo, useState } from 'react';
 import { SidebarToggle } from './sidebar-toggle';
@@ -236,7 +237,7 @@ export function AgentThinkingSidebar({
       <div className="p-4 border-b border-violet-500/20 shrink-0">
         {!isCollapsed ? (
           <>
-            <div className="flex items-center justify-between gap-2 mb-2 min-w-0">
+            <div className="flex items-center justify-between gap-2 mb-2 min-h-[3.25rem] min-w-0">
               <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
                 <div className="relative shrink-0">
                   <Brain className="size-5 text-violet-400" />
@@ -257,13 +258,13 @@ export function AgentThinkingSidebar({
               </span>
             </div>
             <div className="relative h-8 mt-2">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" aria-hidden />
               <input
                 type="text"
                 value={activitySearchQuery}
                 onChange={(e) => setActivitySearchQuery(e.target.value)}
                 placeholder="Search activity..."
-                className="w-full h-8 pl-8 pr-8 text-xs bg-input-background border border-violet-500/30 rounded-md focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500/50 text-foreground placeholder:text-muted-foreground"
+                className="w-full h-8 pl-8 pr-8 text-xs rounded-md bg-input-background dark:bg-input/30 border border-border text-foreground placeholder-muted-foreground focus:outline-none focus:border-violet-500 dark:focus:border-primary focus:ring-2 focus:ring-violet-500/20 dark:focus:ring-primary/30"
                 aria-label="Search activity"
               />
               {activitySearchQuery ? (
@@ -404,17 +405,18 @@ export function AgentThinkingSidebar({
           </div>
 
           <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 overflow-hidden shrink-0">
-            <h3 className="text-xs font-semibold px-3 py-2 text-violet-300 border-b border-violet-500/20">
-              Session stats
+            <h3 className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 text-violet-300 border-b border-violet-500/20">
+              <Zap className="size-3.5 shrink-0" aria-hidden />
+              Session Stats
             </h3>
             <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5 px-3 py-2 text-[11px]">
-              <dt className="text-muted-foreground">Total actions</dt>
+              <dt className="text-muted-foreground">Total actions:</dt>
               <dd className="font-medium text-foreground text-right">{sessionStats.totalActions}</dd>
-              <dt className="text-muted-foreground">Completed</dt>
-              <dd className="font-medium text-foreground text-right">{sessionStats.completed}</dd>
-              <dt className="text-muted-foreground">Processing</dt>
-              <dd className="font-medium text-foreground text-right">{sessionStats.processing}</dd>
-              <dt className="text-muted-foreground">Session time</dt>
+              <dt className="text-muted-foreground">Completed:</dt>
+              <dd className="font-medium text-emerald-400 text-right">{sessionStats.completed}</dd>
+              <dt className="text-muted-foreground">Processing:</dt>
+              <dd className="font-medium text-cyan-400 text-right">{sessionStats.processing}</dd>
+              <dt className="text-muted-foreground">Session time:</dt>
               <dd className="font-medium text-foreground text-right">
                 {formatSessionDurationMs(sessionStats.sessionTimeMs)}
               </dd>
