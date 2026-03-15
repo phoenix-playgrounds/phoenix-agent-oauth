@@ -85,7 +85,7 @@ export function ChatPage() {
   const [lastSentMessage, setLastSentMessage] = useState<string | null>(null);
   const [modelOptions, setModelOptions] = useState<string[]>([]);
   const [currentModel, setCurrentModel] = useState('');
-  const [streamingModel, setStreamingModel] = useState<string | null>(null);
+  const [, setStreamingModel] = useState<string | null>(null);
   const [reasoningText, setReasoningText] = useState('');
   const [thinkingSteps, setThinkingSteps] = useState<ThinkingStep[]>([]);
   const [activityLog, setActivityLog] = useState<ThinkingActivity[]>([]);
