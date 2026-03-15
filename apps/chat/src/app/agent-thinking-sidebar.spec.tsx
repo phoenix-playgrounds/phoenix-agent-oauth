@@ -132,7 +132,7 @@ describe('AgentThinkingSidebar', () => {
     render(
       <AgentThinkingSidebar isCollapsed={false} onToggle={vi.fn()} />
     );
-    expect(screen.getByText('Session stats')).toBeTruthy();
+    expect(screen.getByText('Session Stats')).toBeTruthy();
   });
 
   it('shows Task complete block when not streaming and story items exist', () => {
@@ -184,8 +184,8 @@ describe('AgentThinkingSidebar', () => {
         sessionActivity={sessionActivity}
       />
     );
-    expect(screen.getByText('Total actions')).toBeTruthy();
-    expect(screen.getByText('Session time')).toBeTruthy();
+    expect(screen.getByText('Total actions:')).toBeTruthy();
+    expect(screen.getByText('Session time:')).toBeTruthy();
     expect(screen.getAllByText('2').length).toBeGreaterThanOrEqual(1);
   });
 
