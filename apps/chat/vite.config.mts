@@ -60,6 +60,9 @@ export default defineConfig(() => ({
           if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/') || id.includes('node_modules/react-router')) {
             return 'vendor-react';
           }
+          if (id.includes('node_modules/lucide-react')) {
+            return 'vendor-lucide';
+          }
           if (id.includes('node_modules/marked') || id.includes('node_modules/prismjs')) {
             return 'vendor-markdown';
           }
