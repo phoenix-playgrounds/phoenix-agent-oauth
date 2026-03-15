@@ -349,7 +349,7 @@ export function MentionInput({
       aria-multiline="true"
       aria-label={placeholder}
       data-placeholder={placeholder}
-      className={`min-h-[24px] max-h-32 overflow-y-auto py-2 outline-none resize-none text-xs sm:text-sm text-foreground [&:empty]:before:content-[attr(data-placeholder)] [&:empty]:before:text-muted-foreground ${className ?? ''}`}
+      className={`min-h-[24px] max-h-32 overflow-y-auto py-2 outline-none resize-none text-[16px] sm:text-sm text-foreground [&:empty]:before:content-[attr(data-placeholder)] [&:empty]:before:text-muted-foreground ${className ?? ''}`}
       onInput={handleInput}
       onSelect={handleSelect}
       onKeyDown={handleKeyDown}
