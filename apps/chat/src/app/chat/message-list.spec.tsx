@@ -46,6 +46,24 @@ describe('MessageList', () => {
     expect(screen.getByText(/\d{1,2}:\d{2} (AM|PM)/)).toBeTruthy();
   });
 
+  it('does not render Activity section in assistant message when story is present', () => {
+    const messages: ChatMessage[] = [
+      {
+        role: 'assistant',
+        body: 'Done.',
+        created_at: '2025-03-11T17:01:00.000Z',
+        story: [
+          { id: '1', type: 'tool_call', message: 'Ran Bash', timestamp: '2025-03-11T17:00:59.000Z', command: 'ls' },
+        ],
+      },
+    ];
+    render(
+      <MessageList messages={messages} streamingText="" isStreaming={false} />
+    );
+    expect(screen.getByText('Done.')).toBeTruthy();
+    expect(screen.queryByText('Activity')).toBeNull();
+  });
+
   it('renders assistant message bubble with card styling', () => {
     const messages: ChatMessage[] = [
       {
@@ -57,7 +75,7 @@ describe('MessageList', () => {
     const { container } = render(
       <MessageList messages={messages} streamingText="" isStreaming={false} />
     );
-    const bubble = container.querySelector('.bg-card');
+    const bubble = container.querySelector('[class*="bg-card"]');
     expect(bubble).toBeTruthy();
     expect(bubble?.textContent).toContain('Reply');
   });
@@ -135,7 +153,7 @@ describe('MessageList', () => {
       <MessageList ref={ref} messages={messages} streamingText="" isStreaming={false} />
     );
     expect(ref.current).not.toBeNull();
-    expect(typeof ref.current!.scrollToBottom).toBe('function');
+    expect(typeof (ref.current as MessageListHandle).scrollToBottom).toBe('function');
   });
 
   it('scrollToBottom can be called with no args without throwing', () => {
@@ -147,7 +165,8 @@ describe('MessageList', () => {
       <MessageList ref={ref} messages={messages} streamingText="" isStreaming={false} />
     );
     act(() => {
-      ref.current!.scrollToBottom();
+      const handle = ref.current;
+      if (handle) handle.scrollToBottom();
     });
   });
 
@@ -160,7 +179,8 @@ describe('MessageList', () => {
       <MessageList ref={ref} messages={messages} streamingText="" isStreaming={false} />
     );
     act(() => {
-      ref.current!.scrollToBottom('smooth');
+      const handle = ref.current;
+      if (handle) handle.scrollToBottom('smooth');
     });
   });
 });

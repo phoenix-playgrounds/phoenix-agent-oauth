@@ -1,7 +1,6 @@
 import {
+  Brain,
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   ImagePlus,
   Key,
   LogOut,
@@ -12,7 +11,7 @@ import {
   Send,
   X,
 } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { AuthModal } from '../chat/auth-modal';
@@ -29,11 +28,11 @@ import { useScrollToBottom } from '../chat/use-scroll-to-bottom';
 import { usePlaygroundFiles } from '../chat/use-playground-files';
 import { useVoiceRecorder } from '../chat/use-voice-recorder';
 import { AnimatedPhoenixLogo } from '../animated-phoenix-logo';
-import { FileExplorer } from '../file-explorer/file-explorer';
+import { shouldHideHeaderLogo, shouldHideThemeSwitch } from '../embed-config';
+import { FileExplorer, FileViewerPanel, type PlaygroundEntry } from '../file-explorer/file-explorer';
 import { ThemeToggle } from '../theme-toggle';
-import { CHAT_STATES } from '../chat/chat-state';
+import { CHAT_STATES, STATE_LABELS } from '../chat/chat-state';
 import type { ServerMessage } from '../chat/chat-state';
-import { HeaderThinkingIcons } from '../chat/header-thinking-icons';
 import {
   getApiUrl,
   getAuthTokenForRequest,
@@ -42,21 +41,31 @@ import {
 } from '../api-url';
 import {
   getInitialSidebarCollapsed,
+  getInitialRightSidebarCollapsed,
   persistSidebarCollapsed,
+  persistRightSidebarCollapsed,
+  MAIN_CONTENT_MIN_WIDTH_PX,
   SIDEBAR_COLLAPSED_WIDTH_PX,
   SIDEBAR_WIDTH_PX,
+  CHAT_HEADER_PADDING_BOTTOM_PX,
 } from '../layout-constants';
+import { AgentThinkingSidebar } from '../agent-thinking-sidebar';
+import type { ThinkingStep, ThinkingActivity } from '../chat/thinking-types';
+import {
+  BUTTON_DESTRUCTIVE_GHOST,
+  BUTTON_OUTLINE_ACCENT,
+  CLEAR_BUTTON_POSITION,
+  INPUT_SEARCH,
+  MODAL_CARD,
+  MODAL_OVERLAY_DARK,
+  MOBILE_SHEET_PANEL,
+  SEARCH_ICON_POSITION,
+  SETTINGS_CLOSE_BUTTON,
+} from '../ui-classes';
 
-const STATE_LABELS: Record<string, string> = {
-  [CHAT_STATES.INITIALIZING]: 'Connecting...',
-  [CHAT_STATES.AGENT_OFFLINE]: 'Agent offline',
-  [CHAT_STATES.UNAUTHENTICATED]: 'Authentication required',
-  [CHAT_STATES.AUTH_PENDING]: 'Authentication in progress...',
-  [CHAT_STATES.AUTHENTICATED]: 'Ready to help',
-  [CHAT_STATES.AWAITING_RESPONSE]: 'Working...',
-  [CHAT_STATES.LOGGING_OUT]: 'Logging out...',
-  [CHAT_STATES.ERROR]: 'Error occurred',
-};
+function nextActivityId(): string {
+  return `act-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
 
 const MODEL_DEBOUNCE_MS = 500;
 const MAX_PENDING_IMAGES = 5;
@@ -70,17 +79,32 @@ export function ChatPage() {
 
   const [isMobile, setIsMobile] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(getInitialSidebarCollapsed);
+  const [rightSidebarCollapsed, setRightSidebarCollapsed] = useState(
+    getInitialRightSidebarCollapsed
+  );
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [lastSentMessage, setLastSentMessage] = useState<string | null>(null);
   const [modelOptions, setModelOptions] = useState<string[]>([]);
   const [currentModel, setCurrentModel] = useState('');
+  const [, setStreamingModel] = useState<string | null>(null);
+  const [reasoningText, setReasoningText] = useState('');
+  const [thinkingSteps, setThinkingSteps] = useState<ThinkingStep[]>([]);
+  const [activityLog, setActivityLog] = useState<ThinkingActivity[]>([]);
+  const activityLogRef = useRef<ThinkingActivity[]>([]);
+  const sendRef = useRef<(payload: Record<string, unknown>) => void>(() => undefined);
+  const reasoningTextRef = useRef('');
+  const thinkingEntryIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    activityLogRef.current = activityLog;
+  }, [activityLog]);
   const [pendingImages, setPendingImages] = useState<string[]>([]);
   const [pendingVoice, setPendingVoice] = useState<string | null>(null);
   const [pendingVoiceFilename, setPendingVoiceFilename] = useState<string | null>(null);
   const [voiceUploadError, setVoiceUploadError] = useState<string | null>(null);
+  const [viewingFile, setViewingFile] = useState<PlaygroundEntry | null>(null);
   const [inputState, setInputState] = useState({ value: '', cursor: 0 });
   const inputValue = inputState.value;
   const cursorOffset = inputState.cursor;
@@ -88,8 +112,11 @@ export function ChatPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatInputRef = useRef<HTMLDivElement>(null);
   const messageListRef = useRef<MessageListHandle | null>(null);
-  const { entries: playgroundEntries, loading: playgroundLoading } = usePlaygroundFiles();
-  const hasPlaygroundFiles = playgroundLoading || playgroundEntries.length > 0;
+  const { entries: playgroundEntries, loading: playgroundLoading, refetch: refetchPlaygrounds } =
+    usePlaygroundFiles();
+  const [playgroundRefreshTrigger, setPlaygroundRefreshTrigger] = useState(0);
+  const hasPlaygroundFiles = playgroundEntries.length > 0;
+  const prevHasPlaygroundFilesRef = useRef(hasPlaygroundFiles);
   const atMention = getAtMentionState(inputValue, cursorOffset);
   const [mentionDropdownClosedAfterSelect, setMentionDropdownClosedAfterSelect] = useState(false);
   const mentionOpen =
@@ -101,13 +128,29 @@ export function ChatPage() {
   }, [atMention.show]);
 
   useEffect(() => persistSidebarCollapsed(sidebarCollapsed), [sidebarCollapsed]);
+  useEffect(
+    () => persistRightSidebarCollapsed(rightSidebarCollapsed),
+    [rightSidebarCollapsed]
+  );
+
+  useEffect(() => {
+    const hadFiles = prevHasPlaygroundFilesRef.current;
+    prevHasPlaygroundFilesRef.current = hasPlaygroundFiles;
+    if (!hadFiles && hasPlaygroundFiles && !playgroundLoading) {
+      setSidebarCollapsed(false);
+    }
+  }, [hasPlaygroundFiles, playgroundLoading]);
 
   useEffect(() => {
     if (isMobile) return;
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'b') {
         e.preventDefault();
-        setSidebarCollapsed((v) => !v);
+        if (e.shiftKey) {
+          setRightSidebarCollapsed((v) => !v);
+        } else {
+          setSidebarCollapsed((v) => !v);
+        }
       }
     };
     window.addEventListener('keydown', handler);
@@ -171,7 +214,10 @@ export function ChatPage() {
   }, []);
 
   useEffect(() => {
-    if (!isMobile) setSidebarOpen(false);
+    if (!isMobile) {
+      setSidebarOpen(false);
+      setRightSidebarOpen(false);
+    }
   }, [isMobile]);
 
   const closeMobileSidebar = useCallback(() => setSidebarOpen(false), []);
@@ -208,7 +254,9 @@ export function ChatPage() {
     state,
     errorMessage,
     authModal,
+    sessionActivity,
     send,
+    reconnect,
     startAuth,
     cancelAuth,
     submitAuthCode,
@@ -217,17 +265,156 @@ export function ChatPage() {
     dismissError,
   } = useChatWebSocket(
     handleMessage,
-    (chunk) => setStreamingText((prev) => prev + chunk),
-    () => setStreamingText(''),
+    (chunk) => flushSync(() => setStreamingText((prev) => prev + chunk)),
+    (data) => {
+      setStreamingText('');
+      setReasoningText('');
+      setThinkingSteps([]);
+      reasoningTextRef.current = '';
+      thinkingEntryIdRef.current = null;
+      setStreamingModel(data?.model ?? null);
+      setActivityLog([
+        {
+          id: nextActivityId(),
+          type: 'stream_start',
+          message: 'Response started',
+          timestamp: new Date(),
+          details: data?.model ? `Model: ${data.model}` : undefined,
+        },
+      ]);
+    },
     (finalText) => {
       const text = finalText?.trim() || 'Process completed successfully but returned no output.';
+      const log = activityLogRef.current;
+      const storyForApi = log.map(({ id, type, message, timestamp, details, command, path }) => ({
+        id,
+        type,
+        message,
+        timestamp: timestamp instanceof Date ? timestamp.toISOString() : String(timestamp),
+        ...(details !== undefined ? { details } : {}),
+        ...(command !== undefined ? { command } : {}),
+        ...(path !== undefined ? { path } : {}),
+      }));
       setMessages((m) => [
         ...m,
-        { role: 'assistant', body: text, created_at: new Date().toISOString() },
+        {
+          role: 'assistant',
+          body: text,
+          created_at: new Date().toISOString(),
+          story: storyForApi,
+        },
       ]);
+      sendRef.current({ action: 'submit_story', story: storyForApi });
       setStreamingText('');
       setLastSentMessage(null);
+      setStreamingModel(null);
+      refetchPlaygrounds();
+      setPlaygroundRefreshTrigger((t) => t + 1);
+    },
+    {
+      onStreamStartData: (data) => setStreamingModel(data.model ?? null),
+      onReasoningStart: () => {
+        const id = nextActivityId();
+        thinkingEntryIdRef.current = id;
+        setActivityLog((prev) => [
+          ...prev,
+          {
+            id,
+            type: 'reasoning_start',
+            message: 'Thinking',
+            timestamp: new Date(),
+            details: '',
+          },
+        ]);
+      },
+      onReasoningChunk: (text) => {
+        reasoningTextRef.current += text;
+        flushSync(() => setReasoningText(reasoningTextRef.current));
+        const entryId = thinkingEntryIdRef.current;
+        if (!entryId) return;
+        setActivityLog((prev) => {
+          const idx = prev.findIndex((e) => e.id === entryId);
+          if (idx < 0) return prev;
+          const next = [...prev];
+          next[idx] = { ...next[idx], details: reasoningTextRef.current };
+          return next;
+        });
+      },
+      onReasoningEnd: () => {
+        setActivityLog((prev) => {
+          const entryId = thinkingEntryIdRef.current;
+          if (!entryId) return prev;
+          const idx = prev.findIndex((e) => e.id === entryId);
+          if (idx < 0) return prev;
+          const next = [...prev];
+          next[idx] = { ...next[idx], message: 'Thinking completed' };
+          return next;
+        });
+      },
+      onThinkingStep: (step) => {
+        flushSync(() =>
+          setThinkingSteps((prev) => {
+            const idx = prev.findIndex((s) => s.id === step.id);
+            if (idx >= 0) {
+              const next = [...prev];
+              next[idx] = step;
+              return next;
+            }
+            return [...prev, step];
+          })
+        );
+        setActivityLog((prev) => [
+          ...prev,
+          {
+            id: nextActivityId(),
+            type: 'step',
+            message: `${step.title} – ${step.status}`,
+            timestamp: step.timestamp instanceof Date ? step.timestamp : new Date(step.timestamp),
+            details: step.details,
+            debug: { id: step.id, title: step.title, status: step.status, details: step.details },
+          },
+        ]);
+      },
+      onToolOrFile: (event) => {
+        if (event.kind === 'file_created') {
+          refetchPlaygrounds();
+          setPlaygroundRefreshTrigger((t) => t + 1);
+        }
+        const msg =
+          event.kind === 'file_created'
+            ? `Created ${event.path ?? event.name}`
+            : event.command ? event.command : `Ran ${event.name}`;
+        setActivityLog((prev) => [
+          ...prev,
+          {
+            id: nextActivityId(),
+            type: event.kind,
+            message: msg,
+            timestamp: new Date(),
+            details: event.summary ?? (event.kind === 'file_created' ? event.path : undefined),
+            command: event.kind === 'tool_call' ? event.command : undefined,
+            path: event.path,
+            debug: { kind: event.kind, name: event.name, path: event.path, summary: event.summary },
+          },
+        ]);
+      },
     }
+  );
+
+  useEffect(() => {
+    sendRef.current = send;
+  }, [send]);
+
+  const lastAssistantMessage = useMemo(
+    () => [...messages].reverse().find((m) => m.role === 'assistant'),
+    [messages]
+  );
+  const displayStory = useMemo(
+    () =>
+      state === CHAT_STATES.AWAITING_RESPONSE
+        ? activityLog
+        : (lastAssistantMessage?.story ?? []),
+    [state, activityLog, lastAssistantMessage]
   );
 
   const handleSend = useCallback(() => {
@@ -252,7 +439,7 @@ export function ChatPage() {
     setPendingVoice(null);
     setPendingVoiceFilename(null);
     scroll.markJustSent();
-  }, [send, state, inputValue, pendingImages, pendingVoice, pendingVoiceFilename, scroll.markJustSent]);
+  }, [send, state, inputValue, pendingImages, pendingVoice, pendingVoiceFilename, scroll]);
 
   const addImage = useCallback((dataUrl: string) => {
     setPendingImages((prev) => (prev.length < MAX_PENDING_IMAGES ? [...prev, dataUrl] : prev));
@@ -400,13 +587,23 @@ export function ChatPage() {
 
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
 
+  const filteredMessages = useMemo(
+    () =>
+      searchQuery.trim() === ''
+        ? messages
+        : messages.filter((m) =>
+            m.body?.toLowerCase().includes(searchQuery.trim().toLowerCase())
+          ),
+    [messages, searchQuery]
+  );
+
   if (!authenticated) {
     return null;
   }
 
   const statusClass =
     state === CHAT_STATES.AUTHENTICATED
-      ? 'text-success'
+      ? 'text-muted-foreground'
       : state === CHAT_STATES.ERROR
         ? 'text-destructive'
         : 'text-warning';
@@ -417,11 +614,6 @@ export function ChatPage() {
   const showAuthModal =
     state === CHAT_STATES.AUTH_PENDING &&
     !!(authModal.authUrl || authModal.deviceCode || authModal.isManualToken);
-
-  const filteredMessages =
-    searchQuery.trim() === ''
-      ? messages
-      : messages.filter((m) => m.body?.toLowerCase().includes(searchQuery.trim().toLowerCase()));
 
   return (
     <div className="flex h-screen w-full min-h-0 overflow-hidden bg-gradient-to-br from-background via-background to-violet-950/10">
@@ -434,36 +626,37 @@ export function ChatPage() {
       {settingsOpen && (
         <>
           <div
-            className="fixed inset-0 z-50 bg-black/50"
+            className={MODAL_OVERLAY_DARK}
             aria-hidden
             onClick={closeSettings}
           />
           <div
-            className="fixed top-1/2 left-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border shadow-card overflow-hidden"
-            style={{ backgroundColor: 'var(--card)' }}
+            className={`fixed top-1/2 left-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 ${MODAL_CARD}`}
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
             aria-labelledby="settings-dialog-title"
           >
-            <div className="flex items-center justify-between p-4 border-b border-border-subtle">
+            <div className="flex items-center justify-between p-4 border-b border-border/50">
               <h2 id="settings-dialog-title" className="text-lg font-semibold text-foreground">
                 Settings
               </h2>
               <button
                 type="button"
                 onClick={closeSettings}
-                className="size-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-violet-500/10"
+                className={SETTINGS_CLOSE_BUTTON}
                 aria-label="Close"
               >
                 <X className="size-4" />
               </button>
             </div>
             <div className="p-4 space-y-3">
-              <div className="flex items-center justify-between py-2">
-                <span className="text-sm font-medium text-foreground">Dark mode</span>
-                <ThemeToggle />
-              </div>
+              {!shouldHideThemeSwitch() && (
+                <div className="flex items-center justify-between py-2">
+                  <span className="text-sm font-medium text-foreground">Dark mode</span>
+                  <ThemeToggle />
+                </div>
+              )}
               {(state === CHAT_STATES.UNAUTHENTICATED || state === CHAT_STATES.AUTHENTICATED) && (
                 <button
                   type="button"
@@ -471,7 +664,7 @@ export function ChatPage() {
                     closeSettings();
                     state === CHAT_STATES.UNAUTHENTICATED ? startAuth() : reauthenticate();
                   }}
-                  className="w-full flex items-center gap-2 px-4 py-2.5 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-violet-500/10 transition-colors"
+                  className={BUTTON_OUTLINE_ACCENT}
                 >
                   <Key className="size-4" />
                   {state === CHAT_STATES.UNAUTHENTICATED ? 'Start Auth' : 'Re-authenticate'}
@@ -484,7 +677,7 @@ export function ChatPage() {
                     closeSettings();
                     logout();
                   }}
-                  className="w-full flex items-center gap-2 px-4 py-2.5 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 text-sm font-medium transition-colors"
+                  className={BUTTON_DESTRUCTIVE_GHOST}
                 >
                   <LogOut className="size-4" />
                   Logout
@@ -497,59 +690,82 @@ export function ChatPage() {
           </div>
         </>
       )}
-      {hasPlaygroundFiles && isMobile && sidebarOpen && (
+      {isMobile && sidebarOpen && (
         <>
           <div
-            className="fixed inset-0 z-50 bg-black/50 lg:hidden"
+            className={`${MODAL_OVERLAY_DARK} lg:hidden`}
             aria-hidden
             onClick={closeMobileSidebar}
           />
-          <div className="fixed left-0 top-0 bottom-0 z-50 w-[85vw] sm:w-[400px] max-w-full flex flex-col bg-gradient-to-br from-background via-background to-violet-950/5 border border-violet-500/20 lg:hidden">
+          <div className={`${MOBILE_SHEET_PANEL} left-0 bg-gradient-to-br from-background via-background to-violet-950/5 border border-violet-500/20`}>
             <FileExplorer
-              fullWidth
               onSettingsClick={() => setSettingsOpen(true)}
               onClose={closeMobileSidebar}
+              onFileSelect={(entry) => {
+                setViewingFile(entry);
+                closeMobileSidebar();
+              }}
+              selectedPath={viewingFile?.path ?? null}
+              refreshTrigger={playgroundRefreshTrigger}
             />
           </div>
         </>
       )}
-      {hasPlaygroundFiles && !isMobile && (
+      {isMobile && rightSidebarOpen && (
+        <>
+          <div
+            className={`${MODAL_OVERLAY_DARK} lg:hidden`}
+            aria-hidden
+            onClick={() => setRightSidebarOpen(false)}
+          />
+          <div className={`${MOBILE_SHEET_PANEL} right-0 bg-background border-l border-violet-500/20`}>
+            <AgentThinkingSidebar
+              isCollapsed={false}
+              onToggle={() => setRightSidebarOpen(false)}
+              isStreaming={state === CHAT_STATES.AWAITING_RESPONSE}
+              reasoningText={reasoningText}
+              streamingResponseText={streamingText}
+              thinkingSteps={thinkingSteps}
+              storyItems={displayStory}
+              sessionActivity={sessionActivity}
+              mobileOverlay
+            />
+          </div>
+        </>
+      )}
+      {!isMobile && (
         <div
-          className="relative flex min-h-0 flex-shrink-0 flex-col overflow-visible transition-[width] duration-300 ease-out"
-          style={{ width: sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH_PX : SIDEBAR_WIDTH_PX }}
+          className="flex min-h-0 flex-shrink-0 flex-col overflow-visible transition-[width] duration-300 ease-out"
+          style={{
+            width:
+              !hasPlaygroundFiles || sidebarCollapsed
+                ? SIDEBAR_COLLAPSED_WIDTH_PX
+                : SIDEBAR_WIDTH_PX,
+          }}
         >
-          <aside className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <aside className="flex min-h-0 flex-1 flex-col overflow-visible relative">
             <FileExplorer
-              collapsed={sidebarCollapsed}
+              collapsed={!hasPlaygroundFiles || sidebarCollapsed}
               onSettingsClick={() => setSettingsOpen(true)}
+              onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
+              onFileSelect={(entry) => setViewingFile(entry)}
+              selectedPath={viewingFile?.path ?? null}
+              refreshTrigger={playgroundRefreshTrigger}
             />
           </aside>
-          <div
-            className="absolute top-0 right-0 bottom-0 w-px pointer-events-none z-0 bg-[var(--border-subtle)]"
-            aria-hidden
-          />
-          <button
-            type="button"
-            onClick={() => setSidebarCollapsed((v) => !v)}
-            title={
-              sidebarCollapsed
-                ? 'Expand sidebar (⌘B)'
-                : 'Collapse sidebar (⌘B)'
-            }
-            className="sidebar-toggle absolute top-1/2 right-0 z-10 flex h-14 w-7 -translate-y-1/2 translate-x-full items-center justify-center rounded-r-lg border-0 bg-card/80 backdrop-blur-sm transition-all duration-200 hover:scale-105 hover:bg-violet-500/10 focus:outline-none focus:ring-2 focus:ring-violet-500/30 active:scale-95"
-            aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          >
-            {sidebarCollapsed ? (
-              <ChevronRight className="size-4 text-violet-500 transition-transform" />
-            ) : (
-              <ChevronLeft className="size-4 text-violet-500 transition-transform" />
-            )}
-          </button>
         </div>
       )}
-      <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-transparent">
-        <header className="flex shrink-0 flex-col px-3 sm:px-4 md:px-6 py-3 sm:py-4 border-b border-border-subtle bg-card/40 backdrop-blur-xl">
-          <div className="flex items-center justify-between mb-2 sm:mb-3">
+      <main
+        className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-transparent"
+        style={{ minWidth: MAIN_CONTENT_MIN_WIDTH_PX }}
+      >
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden w-full">
+        <div className="relative flex-1 min-h-0 flex flex-col min-w-0">
+        <header
+          className="flex shrink-0 flex-col border-b border-border/50 bg-card/40 backdrop-blur-xl px-4 pt-4"
+          style={{ paddingBottom: CHAT_HEADER_PADDING_BOTTOM_PX }}
+        >
+          <div className="flex items-center justify-between mb-1 min-h-[3.25rem]">
             <div className="flex items-center gap-2 min-w-0 flex-1">
               <div className="flex items-center gap-1.5 shrink-0 lg:hidden">
                 <button
@@ -558,34 +774,50 @@ export function ChatPage() {
                   className="flex items-center gap-1.5 rounded-xl bg-gradient-to-br from-violet-600/90 to-purple-600/90 hover:from-violet-500 hover:to-purple-500 shadow-md shadow-violet-500/20 border border-violet-400/20 pl-1.5 pr-2.5 py-1.5 text-white transition-all active:scale-[0.98]"
                   aria-label="Open menu"
                 >
-                  <AnimatedPhoenixLogo className="size-7 sm:size-8 pointer-events-none" />
+                  {!shouldHideHeaderLogo() && (
+                    <AnimatedPhoenixLogo className="size-7 sm:size-8 pointer-events-none" />
+                  )}
                   <Menu className="size-4 sm:size-5 shrink-0" />
                 </button>
               </div>
               <div className="min-w-0">
-                <h2 className="font-semibold text-sm sm:text-base text-foreground truncate">AI Assistant</h2>
-                {state === CHAT_STATES.AWAITING_RESPONSE ? (
-                  <div className="flex items-center justify-start gap-1.5 mt-0.5">
-                    <span className="text-[10px] sm:text-xs text-warning">Thinking...</span>
-                    <HeaderThinkingIcons />
-                  </div>
-                ) : (
-                  <p className={`text-[10px] sm:text-xs ${statusClass}`}>
-                    {STATE_LABELS[state] ?? state}
-                  </p>
-                )}
+                <h2 className="font-semibold text-sm text-foreground truncate">
+                  AI Assistant
+                </h2>
+                <div className="min-h-[14px] mt-0.5 flex items-center">
+                  {state === CHAT_STATES.AWAITING_RESPONSE ? (
+                    <span className="text-[10px] sm:text-xs text-warning">
+                      Thinking...
+                    </span>
+                  ) : (
+                    <p className={`text-[10px] sm:text-xs ${statusClass}`}>
+                      {STATE_LABELS[state] ?? state}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
             <div className="flex items-center gap-1 sm:gap-2">
-              <button
-                type="button"
-                onClick={() => setShowSearch((v) => !v)}
-                className="size-7 sm:size-8 flex items-center justify-center rounded-md text-violet-400 hover:text-violet-500 hover:bg-violet-500/10 transition-colors shrink-0"
-                title="Search in conversation"
-                aria-label="Search in conversation"
-              >
-                <Search className="size-3.5 sm:size-4" />
-              </button>
+              {isMobile && (
+                <button
+                  type="button"
+                  onClick={() => setRightSidebarOpen(true)}
+                  className="size-8 sm:size-9 rounded-md flex items-center justify-center text-violet-400 hover:text-violet-500 hover:bg-violet-500/10 transition-colors shrink-0"
+                  title="Agent activity"
+                  aria-label="Open agent activity"
+                >
+                  <Brain className="size-4 sm:size-5" />
+                </button>
+              )}
+              {(state === CHAT_STATES.AGENT_OFFLINE || state === CHAT_STATES.ERROR) && (
+                <button
+                  type="button"
+                  onClick={reconnect}
+                  className="px-3 py-1.5 rounded-md text-xs font-medium bg-gradient-to-r from-violet-600 to-purple-600 text-white border-0 shadow-lg shadow-violet-500/30 hover:opacity-90 transition-opacity"
+                >
+                  Reconnect
+                </button>
+              )}
               <ModelSelector
                 currentModel={currentModel}
                 options={modelOptions}
@@ -594,65 +826,46 @@ export function ChatPage() {
                 visible={showModelSelector}
                 modelLocked={isChatModelLocked()}
               />
-              {(state === CHAT_STATES.UNAUTHENTICATED || state === CHAT_STATES.AUTHENTICATED) && (
+              {state === CHAT_STATES.UNAUTHENTICATED && (
                 <button
                   type="button"
-                  onClick={state === CHAT_STATES.UNAUTHENTICATED ? startAuth : reauthenticate}
+                  onClick={startAuth}
                   className="px-3 py-1.5 rounded-md text-[10px] sm:text-xs font-medium bg-gradient-to-r from-violet-600 to-purple-600 text-white border-0 shadow-lg shadow-violet-500/30 hover:opacity-90 transition-opacity"
                 >
-                  {state === CHAT_STATES.UNAUTHENTICATED ? 'Start Auth' : 'Reauthenticate'}
-                </button>
-              )}
-              {(state === CHAT_STATES.AUTHENTICATED || state === CHAT_STATES.AWAITING_RESPONSE) && (
-                <button
-                  type="button"
-                  onClick={logout}
-                  className="px-3 py-1.5 rounded-md bg-destructive/90 hover:bg-destructive text-white text-[10px] sm:text-xs font-medium transition-colors"
-                >
-                  Logout
+                  Start Auth
                 </button>
               )}
             </div>
           </div>
-          <div
-            className="grid transition-[grid-template-rows] duration-200 ease-out"
-            style={{ gridTemplateRows: showSearch ? '1fr' : '0fr' }}
-          >
-            <div className="min-h-0 overflow-hidden">
-              <div
-                className={`pb-2 pt-0.5 transition-opacity duration-200 ${showSearch ? 'opacity-100' : 'opacity-0'}`}
+          <div className="relative h-8 mt-1">
+            <Search className={SEARCH_ICON_POSITION} aria-hidden />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search in conversation..."
+              className={INPUT_SEARCH}
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className={CLEAR_BUTTON_POSITION}
+                aria-label="Clear search"
               >
-                <div className="relative">
-                  <Search className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 size-3.5 sm:size-4 text-muted-foreground pointer-events-none" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search in conversation..."
-                    className="w-full h-8 sm:h-9 pl-8 sm:pl-10 pr-8 sm:pr-10 text-xs sm:text-sm rounded-md bg-input-bg border border-violet-500/30 dark:border-border text-foreground placeholder-muted-foreground focus:outline-none focus:border-violet-500 dark:focus:border-primary focus:ring-2 focus:ring-violet-500/20 dark:focus:ring-primary/30"
-                  />
-                  {searchQuery && (
-                    <button
-                      type="button"
-                      onClick={() => setSearchQuery('')}
-                      className="absolute right-2.5 sm:right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                      aria-label="Clear search"
-                    >
-                      <X className="size-3.5 sm:size-4" />
-                    </button>
-                  )}
-                </div>
-                {searchQuery && (
-                  <p className="text-[10px] sm:text-xs text-muted-foreground mt-2">
-                    Found {filteredMessages.length} message{filteredMessages.length !== 1 ? 's' : ''}
-                  </p>
-                )}
-              </div>
-            </div>
+                <X className="size-3.5" />
+              </button>
+            )}
           </div>
+          {searchQuery && (
+            <p className="text-[10px] sm:text-xs text-muted-foreground mt-2">
+              Found {filteredMessages.length} message
+              {filteredMessages.length !== 1 ? 's' : ''}
+            </p>
+          )}
         </header>
         {errorMessage && state === CHAT_STATES.ERROR && (
-          <div className="flex shrink-0 items-center justify-between px-4 py-2 bg-destructive/10 border-b border-border-subtle">
+          <div className="flex shrink-0 items-center justify-between px-4 py-2 bg-destructive/10 border-b border-border/50">
             <span className="text-destructive text-sm">{errorMessage}</span>
             <button
               type="button"
@@ -669,7 +882,7 @@ export function ChatPage() {
             onScroll={scroll.onScroll}
             className="chat-messages-scroll flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8"
           >
-            <div className="max-w-4xl">
+            <div>
               <MessageList
                 ref={messageListRef}
                 messages={filteredMessages}
@@ -677,6 +890,9 @@ export function ChatPage() {
                 isStreaming={state === CHAT_STATES.AWAITING_RESPONSE}
                 lastUserMessage={state === CHAT_STATES.AWAITING_RESPONSE ? lastSentMessage : null}
                 scrollRef={scroll.scrollRef}
+                bothSidebarsCollapsed={
+                  !isMobile && sidebarCollapsed && rightSidebarCollapsed
+                }
               />
               <div ref={scroll.endRef} />
             </div>
@@ -696,12 +912,27 @@ export function ChatPage() {
             </button>
           )}
         </div>
+        {viewingFile && (
+          <div
+            className="absolute inset-0 z-10 flex flex-col min-h-0 bg-background"
+            role="dialog"
+            aria-modal="true"
+            aria-label="File viewer"
+          >
+            <FileViewerPanel
+              entry={viewingFile}
+              onClose={() => setViewingFile(null)}
+              inline
+            />
+          </div>
+        )}
+        </div>
         <div className="shrink-0 p-3 sm:p-4 md:p-6 border-t border-border bg-card/30 backdrop-blur-sm">
-            <div className="max-w-4xl flex flex-col gap-2">
+            <div className="flex flex-col gap-2">
               {(pendingImages.length > 0 || pendingVoice) && (
                 <div className="flex flex-wrap gap-2 items-center">
                   {pendingVoice && (
-                    <div className="relative flex items-center gap-2 px-3 py-2 rounded-xl border border-border-subtle bg-card/60">
+                    <div className="relative flex items-center gap-2 px-3 py-2 rounded-xl border border-border/50 bg-card/60">
                       <audio src={pendingVoice} controls className="max-h-10 min-w-[160px]" />
                       <button
                         type="button"
@@ -718,7 +949,7 @@ export function ChatPage() {
                       <img
                         src={dataUrl}
                         alt=""
-                        className="w-16 h-16 object-cover rounded-xl border border-border-subtle"
+                        className="w-16 h-16 object-cover rounded-xl border border-border/50"
                       />
                       <button
                         type="button"
@@ -748,13 +979,16 @@ export function ChatPage() {
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={state !== CHAT_STATES.AUTHENTICATED || pendingImages.length >= MAX_PENDING_IMAGES}
-                  className="size-8 sm:size-9 rounded-md flex items-center justify-center text-foreground dark:text-violet-400 hover:text-violet-600 hover:bg-violet-500/10 dark:hover:text-violet-500 transition-colors shrink-0"
+                  className="size-8 sm:size-9 rounded-md flex items-center justify-center text-violet-400 hover:text-violet-500 hover:bg-violet-500/10 transition-colors shrink-0"
                   title="Attach file"
                   aria-label="Attach file"
                 >
                   <Paperclip className="size-3.5 sm:size-4" />
                 </button>
-                <div className="relative flex-1 min-w-0">
+                <div
+                  className="relative flex-1 min-w-0"
+                  title={state === CHAT_STATES.AUTHENTICATED ? 'Type @ to link a file' : undefined}
+                >
                   <MentionInput
                     inputRef={chatInputRef}
                     id="chat-input"
@@ -764,7 +998,7 @@ export function ChatPage() {
                     onCursorChange={(c) => setInputState((prev) => ({ ...prev, cursor: c }))}
                     placeholder={
                       state === CHAT_STATES.AUTHENTICATED
-                        ? 'Ask me anything... (type @ to link a file)'
+                        ? 'Ask me anything...'
                         : 'Complete authentication to start chatting...'
                     }
                     disabled={state !== CHAT_STATES.AUTHENTICATED}
@@ -785,7 +1019,7 @@ export function ChatPage() {
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={state !== CHAT_STATES.AUTHENTICATED || pendingImages.length >= MAX_PENDING_IMAGES}
-                  className="size-8 sm:size-9 rounded-md flex items-center justify-center text-foreground dark:text-violet-400 hover:text-violet-600 hover:bg-violet-500/10 dark:hover:text-violet-500 transition-colors shrink-0"
+                  className="size-8 sm:size-9 rounded-md flex items-center justify-center text-violet-400 hover:text-violet-500 hover:bg-violet-500/10 transition-colors shrink-0"
                   title="Upload photo"
                   aria-label="Upload photo"
                 >
@@ -799,7 +1033,7 @@ export function ChatPage() {
                     className={`size-8 sm:size-9 rounded-md flex items-center justify-center transition-colors shrink-0 ${
                       voiceRecorder.isRecording
                         ? 'bg-destructive/90 hover:bg-destructive text-white'
-                        : 'text-foreground dark:text-violet-400 hover:text-violet-600 hover:bg-violet-500/10 dark:hover:text-violet-500'
+                        : 'text-violet-400 hover:text-violet-500 hover:bg-violet-500/10'
                     }`}
                     title={voiceRecorder.isRecording ? 'Stop recording' : 'Voice input'}
                     aria-label={voiceRecorder.isRecording ? 'Stop recording' : 'Voice input'}
@@ -828,7 +1062,20 @@ export function ChatPage() {
               </div>
             </div>
         </div>
+        </div>
       </main>
+      {!isMobile && (
+        <AgentThinkingSidebar
+          isCollapsed={rightSidebarCollapsed}
+          onToggle={() => setRightSidebarCollapsed((v) => !v)}
+          isStreaming={state === CHAT_STATES.AWAITING_RESPONSE}
+          reasoningText={reasoningText}
+          streamingResponseText={streamingText}
+          thinkingSteps={thinkingSteps}
+          storyItems={displayStory}
+          sessionActivity={sessionActivity}
+        />
+      )}
     </div>
   );
 }

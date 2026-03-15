@@ -1,12 +1,54 @@
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { AuthConnection, LogoutConnection } from './strategy.types';
+import type { AuthConnection, LogoutConnection, ToolEvent } from './strategy.types';
 import type { AgentStrategy } from './strategy.types';
 
 const CLAUDE_CONFIG_DIR = join(process.env.HOME ?? '/home/node', '.claude');
 const TOKEN_FILE_PATH = join(CLAUDE_CONFIG_DIR, 'agent_token.txt');
 const PLAYGROUND_DIR = join(process.cwd(), 'playground');
+
+const FILE_WRITING_TOOL_NAMES = ['write_file', 'edit_file', 'search_replace'];
+
+export function toolUseToEvent(
+  cb: { name?: string; input?: unknown },
+  input: Record<string, unknown> | undefined
+): ToolEvent {
+  const args = input && typeof input.arguments === 'object' ? (input.arguments as Record<string, unknown>) : undefined;
+  const command =
+    typeof input?.command === 'string'
+      ? input.command
+      : typeof args?.command === 'string'
+        ? args.command
+        : undefined;
+  const summary =
+    input && !command ? JSON.stringify(input).slice(0, 200) : undefined;
+  const isFileTool = FILE_WRITING_TOOL_NAMES.includes((cb.name ?? '').toLowerCase());
+  const pathFromInput =
+    typeof input?.path === 'string'
+      ? input.path
+      : typeof input?.file_path === 'string'
+        ? input.file_path
+        : typeof input?.path_input === 'string'
+          ? input.path_input
+          : typeof input?.name === 'string' && isFileTool
+            ? input.name
+            : undefined;
+  if (isFileTool && (pathFromInput ?? cb.name)) {
+    return {
+      kind: 'file_created',
+      name: (pathFromInput ? pathFromInput.split(/[/\\]/).pop() : undefined) ?? cb.name ?? 'file',
+      path: pathFromInput ?? cb.name,
+      summary,
+    };
+  }
+  return {
+    kind: 'tool_call',
+    name: cb.name ?? 'tool',
+    summary,
+    command,
+  };
+}
 
 export class ClaudeCodeStrategy implements AgentStrategy {
   private currentConnection: AuthConnection | null = null;
@@ -133,18 +175,25 @@ export class ClaudeCodeStrategy implements AgentStrategy {
   executePromptStreaming(
     prompt: string,
     _model: string,
-    onChunk: (chunk: string) => void
+    onChunk: (chunk: string) => void,
+    callbacks?: import('./strategy.types').StreamingCallbacks,
+    systemPrompt?: string
   ): Promise<void> {
     return new Promise((resolve, reject) => {
       if (!existsSync(PLAYGROUND_DIR)) {
         mkdirSync(PLAYGROUND_DIR, { recursive: true });
       }
 
+      const useStreamJson = !!callbacks;
       const args = [
         ...(this._hasSession ? ['--continue'] : []),
         '-p',
         prompt,
         '--dangerously-skip-permissions',
+        ...(systemPrompt ? ['--system-prompt', systemPrompt] : []),
+        ...(useStreamJson
+          ? ['--output-format', 'stream-json', '--include-partial-messages', '--verbose']
+          : []),
       ];
       for (const dir of this.getPlaygroundDirs()) {
         args.push('--add-dir', dir);
@@ -164,9 +213,67 @@ export class ClaudeCodeStrategy implements AgentStrategy {
       claudeProcess.stdin?.end();
 
       let errorResult = '';
+      let stdoutBuffer = '';
+      let inThinking = false;
+
+      const handleStreamJsonLine = (line: string) => {
+        line = line.trim();
+        if (!line) return;
+        try {
+          const obj = JSON.parse(line) as {
+            type?: string;
+            event?: {
+              type?: string;
+              index?: number;
+              delta?: { type?: string; text?: string; thinking?: string };
+              content_block?: { type?: string; name?: string; input?: unknown };
+            };
+          };
+          if (obj.type !== 'stream_event' || !obj.event) return;
+          const ev = obj.event;
+          if (ev.type === 'content_block_delta' && ev.delta) {
+            if (ev.delta.type === 'text_delta' && ev.delta.text) {
+              if (inThinking) {
+                callbacks?.onReasoningEnd?.();
+                inThinking = false;
+              }
+              onChunk(ev.delta.text);
+            }
+            if (ev.delta.type === 'thinking_delta') {
+              const thinkingChunk = ev.delta.thinking ?? ev.delta.text ?? '';
+              if (thinkingChunk) {
+                if (!inThinking) {
+                  inThinking = true;
+                  callbacks?.onReasoningStart?.();
+                }
+                callbacks?.onReasoningChunk?.(thinkingChunk);
+              }
+            }
+          }
+          if (ev.type === 'content_block_stop' && inThinking) {
+            callbacks?.onReasoningEnd?.();
+            inThinking = false;
+          }
+          if (ev.type === 'content_block_start' && ev.content_block?.type === 'tool_use') {
+            const cb = ev.content_block;
+            const input = cb.input && typeof cb.input === 'object' ? (cb.input as Record<string, unknown>) : undefined;
+            callbacks?.onTool?.(toolUseToEvent(cb, input));
+          }
+        } catch {
+          /* ignore malformed lines */
+        }
+      };
 
       claudeProcess.stdout?.on('data', (data: Buffer | string) => {
-        onChunk(data.toString());
+        const str = data.toString();
+        if (useStreamJson) {
+          stdoutBuffer += str;
+          const lines = stdoutBuffer.split('\n');
+          stdoutBuffer = lines.pop() ?? '';
+          for (const line of lines) handleStreamJsonLine(line);
+        } else {
+          onChunk(str);
+        }
       });
 
       claudeProcess.stderr?.on('data', (data: Buffer | string) => {
@@ -174,6 +281,7 @@ export class ClaudeCodeStrategy implements AgentStrategy {
       });
 
       claudeProcess.on('close', (code) => {
+        if (useStreamJson && stdoutBuffer.trim()) handleStreamJsonLine(stdoutBuffer);
         if (code !== 0 && errorResult.trim()) {
           reject(new Error(errorResult || `Process exited with code ${code}`));
         } else {

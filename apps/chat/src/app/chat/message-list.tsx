@@ -1,11 +1,20 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from 'react';
+import { forwardRef, memo, useCallback, useEffect, useImperativeHandle, useRef } from 'react';
 import { Sparkles, User } from 'lucide-react';
-import { marked } from 'marked';
 import { getApiUrl, getAuthTokenForRequest } from '../api-url';
 import { FileIcon } from '../file-icon';
 import { AT_MENTION_REGEX, pathDisplayName } from './mention-utils';
 import { ThinkingAvatar, ThinkingState } from './thinking-state';
+import {
+  AVATAR_ASSISTANT,
+  AVATAR_USER,
+  BUBBLE_ASSISTANT,
+  BUBBLE_TYPING,
+  BUBBLE_USER,
+  PROSE_MESSAGE,
+} from '../ui-classes';
+import { ASSISTANT_AVATAR_URL, USER_AVATAR_URL } from './chat-avatar';
+import { renderMarkdown } from './markdown-cache';
 
 function MentionChipIcon({ path }: { path: string }) {
   return <FileIcon pathOrName={path} size={12} className="shrink-0 opacity-90" />;
@@ -42,6 +51,15 @@ export interface ChatMessage {
   body: string;
   created_at: string;
   imageUrls?: string[];
+  story?: Array<{
+    id: string;
+    type: string;
+    message: string;
+    timestamp: string;
+    details?: string;
+    command?: string;
+    path?: string;
+  }>;
   optimistic?: boolean;
 }
 
@@ -55,21 +73,6 @@ function formatTime(iso: string): string {
   return `${h}:${mins} ${ampm}`;
 }
 
-function renderMarkdown(text: string): string {
-  try {
-    const out = marked.parse(text);
-    return typeof out === 'string' ? out : escapeHtml(text);
-  } catch {
-    return escapeHtml(text);
-  }
-}
-
-function escapeHtml(str: string): string {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
-}
-
 function getUploadSrc(filename: string): string {
   const base = getApiUrl();
   const path = base ? `${base}/api/uploads/${encodeURIComponent(filename)}` : `/api/uploads/${encodeURIComponent(filename)}`;
@@ -79,32 +82,45 @@ function getUploadSrc(filename: string): string {
 
 const ESTIMATED_ROW_HEIGHT = 120;
 const ROW_GAP = 24;
+const DEFAULT_MAX_WIDTH = 'max-w-[90%] sm:max-w-[85%] md:max-w-[80%]';
+const FULL_WIDTH = 'max-w-full';
 
-const ASSISTANT_BUBBLE_CLASSES =
-  'rounded-tl-sm bg-card border border-border shadow-xl shadow-violet-500/5 text-card-foreground';
-
-function MessageRow({ msg }: { msg: ChatMessage }) {
+const MessageRow = memo(function MessageRow({
+  msg,
+  maxWidthClass = DEFAULT_MAX_WIDTH,
+}: {
+  msg: ChatMessage;
+  maxWidthClass?: string;
+}) {
   return (
     <div
       className={`flex gap-2 sm:gap-3 md:gap-4 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
     >
       <div className="flex-shrink-0">
         {msg.role === 'user' ? (
-          <div className="size-7 sm:size-8 rounded-full bg-gradient-to-br from-violet-600 to-purple-700 flex items-center justify-center text-white">
-            <User className="size-3.5 sm:size-4" />
+          USER_AVATAR_URL ? (
+            <div className={`${AVATAR_USER} overflow-hidden`}>
+              <img src={USER_AVATAR_URL} alt="" className="size-full object-cover" />
+            </div>
+          ) : (
+            <div className={AVATAR_USER}>
+              <User className="size-3.5 sm:size-4" />
+            </div>
+          )
+        ) : ASSISTANT_AVATAR_URL ? (
+          <div className={`${AVATAR_ASSISTANT} overflow-hidden`}>
+            <img src={ASSISTANT_AVATAR_URL} alt="" className="size-full object-cover" />
           </div>
         ) : (
-          <div className="size-7 sm:size-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center relative text-white">
+          <div className={AVATAR_ASSISTANT}>
             <Sparkles className="size-3.5 sm:size-4" />
           </div>
         )}
       </div>
       <div className={`flex-1 min-w-0 ${msg.role === 'user' ? 'flex justify-end' : ''}`}>
         <div
-          className={`max-w-[90%] sm:max-w-[85%] md:max-w-[80%] px-3 sm:px-4 py-2 sm:py-3 rounded-2xl ${
-            msg.role === 'user'
-              ? 'rounded-tr-sm bg-gradient-to-br from-violet-600 to-purple-700 text-white shadow-lg shadow-violet-500/20'
-              : ASSISTANT_BUBBLE_CLASSES
+          className={`${maxWidthClass} px-3 sm:px-4 py-2 sm:py-3 rounded-2xl ${
+            msg.role === 'user' ? `rounded-tr-sm ${BUBBLE_USER}` : BUBBLE_ASSISTANT
           }`}
         >
           {msg.role === 'user' ? (
@@ -134,7 +150,7 @@ function MessageRow({ msg }: { msg: ChatMessage }) {
           ) : (
             <>
               <div
-                className="markdown-body prose prose-sm max-w-none dark:prose-invert text-sm sm:text-[14px]"
+                className={PROSE_MESSAGE}
                 dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.body) }}
               />
               <p className="text-xs mt-1.5 sm:mt-2 text-muted-foreground">
@@ -146,7 +162,7 @@ function MessageRow({ msg }: { msg: ChatMessage }) {
       </div>
     </div>
   );
-}
+});
 
 export interface MessageListHandle {
   scrollToBottom: (behavior?: ScrollBehavior) => void;
@@ -160,11 +176,13 @@ export const MessageList = forwardRef<
     isStreaming: boolean;
     lastUserMessage?: string | null;
     scrollRef?: React.RefObject<HTMLDivElement | null>;
+    bothSidebarsCollapsed?: boolean;
   }
 >(function MessageList(
-  { messages, streamingText, isStreaming, lastUserMessage, scrollRef },
+  { messages, streamingText, isStreaming, lastUserMessage, scrollRef, bothSidebarsCollapsed },
   ref
 ) {
+  const maxWidthClass = bothSidebarsCollapsed ? FULL_WIDTH : DEFAULT_MAX_WIDTH;
   const virtualizer = useVirtualizer({
     count: messages.length,
     getScrollElement: () => scrollRef?.current ?? null,
@@ -224,7 +242,7 @@ export const MessageList = forwardRef<
               minHeight: virtualRow.size,
             }}
           >
-            <MessageRow msg={msg} />
+            <MessageRow msg={msg} maxWidthClass={maxWidthClass} />
           </div>
         );
       })}
@@ -232,7 +250,11 @@ export const MessageList = forwardRef<
   ) : (
     <div className="space-y-4 sm:space-y-6">
       {messages.map((msg) => (
-        <MessageRow key={msg.id ?? `${msg.created_at}-${msg.role}`} msg={msg} />
+        <MessageRow
+          key={msg.id ?? `${msg.created_at}-${msg.role}`}
+          msg={msg}
+          maxWidthClass={maxWidthClass}
+        />
       ))}
     </div>
   );
@@ -244,10 +266,14 @@ export const MessageList = forwardRef<
         <div className="flex gap-2 sm:gap-3 md:gap-4">
           <ThinkingAvatar />
           <div className="flex-1 min-w-0">
-            <div className={`max-w-[90%] sm:max-w-[85%] md:max-w-[80%] rounded-2xl px-4 py-3 ${ASSISTANT_BUBBLE_CLASSES}`}>
+            <div
+              className={`${maxWidthClass} px-4 py-3 ${
+                streamingText ? BUBBLE_ASSISTANT : BUBBLE_TYPING
+              }`}
+            >
               {streamingText ? (
                 <div
-                  className="markdown-body prose prose-sm max-w-none dark:prose-invert text-sm sm:text-[14px]"
+                  className={PROSE_MESSAGE}
                   dangerouslySetInnerHTML={{ __html: renderMarkdown(streamingText) }}
                 />
               ) : (
