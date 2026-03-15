@@ -61,6 +61,7 @@ export function ModelSelector({
         window.removeEventListener('resize', updateRect);
       };
     }
+    return;
   }, [open]);
 
   useEffect(() => {
