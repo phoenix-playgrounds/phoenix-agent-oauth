@@ -13,8 +13,8 @@ Nest Fastify API (project `api`).
 | POST   | /api/auth/login | No    | Body `{ password? }`. Returns `{ success, message?, token? }` or 401       |
 | GET    | /api/messages   | Bearer| Returns array of messages `{ id, role, body, created_at, imageUrls?, story? }[]` (story = activity timeline for assistant messages)     |
 | GET    | /api/activity   | Bearer| Returns array of stored activities `{ id, created_at, story }[]` (whole story per response, same shape as in `activity.json`)            |
-| GET    | /api/uploads/:filename | Bearer | Serves an uploaded file (images or voice recordings from chat attachments)        |
-| POST   | /api/uploads           | Bearer | Upload a voice file (multipart form field `file`). Returns `{ filename }`. Max 20MB. |
+| GET    | /api/uploads/:filename | Bearer | Serves an uploaded file (images, voice, or document attachments).        |
+| POST   | /api/uploads           | Bearer | Upload a file (multipart form field `file`). Returns `{ filename }`. Allowed: images, audio, PDF, Excel, Word, text, CSV, JSON, etc. Blocked: executables and scripts. Max 20MB. |
 | GET    | /api/model-options | Bearer | Returns string array of model names from `MODEL_OPTIONS` env                |
 | GET    | /api/playgrounds   | Bearer | Returns file tree of `./playground` (or `PLAYGROUNDS_DIR`) as JSON array   |
 | GET    | /api/playgrounds/file | Bearer | Query `path` = relative path. Returns `{ content: string }`; 404 if not found or not a file. |
@@ -42,7 +42,7 @@ When `AGENT_PASSWORD` is set, `GET /api/messages`, `GET /api/activity`, `GET /ap
 | cancel_auth        | —           | Cancel ongoing auth           |
 | reauthenticate     | —           | Clear credentials and re-auth |
 | logout             | —           | Log out from provider         |
-| send_chat_message  | `{ text, images?, audio?, audioFilename? }`  | Send user message; optional `images` (base64), optional `audio` (base64), or `audioFilename` (from POST /api/uploads); stream response. Message text may contain `@path` references to playground files (e.g. `@src/index.ts`); the API injects those files’ contents into the prompt. |
+| send_chat_message  | `{ text, images?, audio?, audioFilename?, attachmentFilenames? }`  | Send user message; optional `images` (base64), optional `audio` (base64), `audioFilename` or `attachmentFilenames` (from POST /api/uploads); stream response. Message text may contain `@path` references to playground files (e.g. `@src/index.ts`); the API injects those files’ contents and attached file paths into the prompt. |
 | submit_story       | `{ story }` | Submit activity story (array of `{ id, type, message, timestamp, details?, command?, path? }`) for the last assistant message; call after stream ends. Entries with `command` (e.g. tool_call) or `path` (e.g. file_created) are shown as terminal/file blocks in the UI. |
 | get_model          | —           | Request current model          |
 | set_model          | `{ model }` | Set model name                 |

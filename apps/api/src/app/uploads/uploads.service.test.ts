@@ -88,4 +88,18 @@ describe('UploadsService', () => {
     const filename = await service.saveAudioFromBuffer(Buffer.from('x'), 'audio/webm');
     expect(service.getPath(filename)).toBe(join(subDir, 'uploads', filename));
   });
+
+  test('saveFileFromBuffer creates file with correct extension for PDF', async () => {
+    const service = new UploadsService(config as never);
+    const buf = Buffer.from('pdf content');
+    const filename = await service.saveFileFromBuffer(buf, 'application/pdf');
+    expect(filename).toMatch(/\.pdf$/);
+    expect(readFileSync(service.getPath(filename)!)).toEqual(buf);
+  });
+
+  test('saveFileFromBuffer uses correct extension for spreadsheet and text', async () => {
+    const service = new UploadsService(config as never);
+    expect(await service.saveFileFromBuffer(Buffer.from(''), 'text/csv')).toMatch(/\.csv$/);
+    expect(await service.saveFileFromBuffer(Buffer.from(''), 'text/plain')).toMatch(/\.txt$/);
+  });
 });

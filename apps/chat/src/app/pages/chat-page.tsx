@@ -44,6 +44,7 @@ import {
   SIDEBAR_WIDTH_PX,
   CHAT_HEADER_PADDING_BOTTOM_PX,
 } from '../layout-constants';
+import { FileIcon } from '../file-icon';
 import { AgentThinkingSidebar } from '../agent-thinking-sidebar';
 import { formatSessionDurationMs, toTimestampMs } from '../agent-thinking-utils';
 import type { ThinkingStep, ThinkingActivity } from '../chat/thinking-types';
@@ -65,6 +66,10 @@ function nextActivityId(): string {
 
 const MODEL_DEBOUNCE_MS = 500;
 const MAX_PENDING_IMAGES = 5;
+const MAX_PENDING_ATTACHMENTS = 5;
+const MAX_PENDING_TOTAL = MAX_PENDING_IMAGES + MAX_PENDING_ATTACHMENTS;
+const ACCEPT_FILES =
+  'image/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.json,.md,.rtf,application/pdf,text/plain,text/csv,application/json';
 const MOBILE_BREAKPOINT_PX = 1024;
 
 export function ChatPage() {
@@ -97,9 +102,11 @@ export function ChatPage() {
     activityLogRef.current = activityLog;
   }, [activityLog]);
   const [pendingImages, setPendingImages] = useState<string[]>([]);
+  const [pendingAttachments, setPendingAttachments] = useState<{ filename: string; name: string }[]>([]);
   const [pendingVoice, setPendingVoice] = useState<string | null>(null);
   const [pendingVoiceFilename, setPendingVoiceFilename] = useState<string | null>(null);
   const [voiceUploadError, setVoiceUploadError] = useState<string | null>(null);
+  const [attachmentUploadError, setAttachmentUploadError] = useState<string | null>(null);
   const [viewingFile, setViewingFile] = useState<PlaygroundEntry | null>(null);
   const [inputState, setInputState] = useState({ value: '', cursor: 0 });
   const inputValue = inputState.value;
@@ -427,12 +434,15 @@ export function ChatPage() {
   const handleSend = useCallback(() => {
     const text = inputValue.trim();
     const hasVoice = !!pendingVoiceFilename || !!pendingVoice;
-    if ((!text && !pendingImages.length && !hasVoice) || state !== CHAT_STATES.AUTHENTICATED) return;
+    const hasContent =
+      text || pendingImages.length > 0 || hasVoice || pendingAttachments.length > 0;
+    if (!hasContent || state !== CHAT_STATES.AUTHENTICATED) return;
     send({
       action: 'send_chat_message',
       text: text || '',
       ...(pendingImages.length ? { images: pendingImages } : {}),
       ...(pendingVoiceFilename ? { audioFilename: pendingVoiceFilename } : pendingVoice ? { audio: pendingVoice } : {}),
+      ...(pendingAttachments.length ? { attachmentFilenames: pendingAttachments.map((a) => a.filename) } : {}),
     });
     if (text) {
       setMessages((prev) => [
@@ -443,10 +453,11 @@ export function ChatPage() {
     setLastSentMessage(text || null);
     setInputState({ value: '', cursor: 0 });
     setPendingImages([]);
+    setPendingAttachments([]);
     setPendingVoice(null);
     setPendingVoiceFilename(null);
     scroll.markJustSent();
-  }, [send, state, inputValue, pendingImages, pendingVoice, pendingVoiceFilename, scroll]);
+  }, [send, state, inputValue, pendingImages, pendingVoice, pendingVoiceFilename, pendingAttachments, scroll]);
 
   const addImage = useCallback((dataUrl: string) => {
     setPendingImages((prev) => (prev.length < MAX_PENDING_IMAGES ? [...prev, dataUrl] : prev));
@@ -462,23 +473,113 @@ export function ChatPage() {
     setVoiceUploadError(null);
   }, []);
 
+  const uploadAttachment = useCallback(async (file: File): Promise<string | null> => {
+    const formData = new FormData();
+    formData.append('file', file, file.name);
+    const res = await apiRequest(API_PATHS.UPLOADS, { method: 'POST', body: formData });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { filename: string };
+    return data.filename ?? null;
+  }, []);
+
+  const addAttachment = useCallback(
+    (filename: string, name: string) => {
+      setPendingAttachments((prev) =>
+        prev.length < MAX_PENDING_ATTACHMENTS ? [...prev, { filename, name }] : prev
+      );
+    },
+    []
+  );
+
+  const removePendingAttachment = useCallback((index: number) => {
+    setPendingAttachments((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const addFiles = useCallback(
+    async (files: FileList | File[]) => {
+      const arr = Array.from(files);
+      setAttachmentUploadError(null);
+      for (const file of arr) {
+        const total = pendingImages.length + pendingAttachments.length;
+        if (total >= MAX_PENDING_TOTAL) break;
+        if (file.type.startsWith('image/') && pendingImages.length < MAX_PENDING_IMAGES) {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const dataUrl = reader.result as string;
+            if (dataUrl) addImage(dataUrl);
+          };
+          reader.readAsDataURL(file);
+        } else if (pendingAttachments.length < MAX_PENDING_ATTACHMENTS) {
+          const filename = await uploadAttachment(file);
+          if (filename) addAttachment(filename, file.name);
+          else setAttachmentUploadError(`Could not upload ${file.name}`);
+        }
+      }
+    },
+    [
+      addImage,
+      addAttachment,
+      uploadAttachment,
+      pendingImages.length,
+      pendingAttachments.length,
+    ]
+  );
+
   const handleFileChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = e.target.files;
       if (!files?.length) return;
-      for (let i = 0; i < files.length && pendingImages.length < MAX_PENDING_IMAGES; i++) {
-        const file = files[i];
-        if (!file.type.startsWith('image/')) continue;
-        const reader = new FileReader();
-        reader.onload = () => {
-          const dataUrl = reader.result as string;
-          if (dataUrl) addImage(dataUrl);
-        };
-        reader.readAsDataURL(file);
-      }
+      void addFiles(files);
       e.target.value = '';
     },
-    [addImage, pendingImages.length]
+    [addFiles]
+  );
+
+  const [isDragOver, setIsDragOver] = useState(false);
+  const dragCounterRef = useRef(0);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'copy';
+  }, []);
+
+  const handleDragEnter = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragCounterRef.current += 1;
+      const atCapacity = pendingImages.length + pendingAttachments.length >= MAX_PENDING_TOTAL;
+      if (
+        e.dataTransfer.types.includes('Files') &&
+        state === CHAT_STATES.AUTHENTICATED &&
+        !atCapacity
+      ) {
+        setIsDragOver(true);
+      }
+    },
+    [state, pendingImages.length, pendingAttachments.length]
+  );
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current -= 1;
+    if (dragCounterRef.current === 0) setIsDragOver(false);
+  }, []);
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragCounterRef.current = 0;
+      setIsDragOver(false);
+      const files = e.dataTransfer.files;
+      const atCapacity = pendingImages.length + pendingAttachments.length >= MAX_PENDING_TOTAL;
+      if (!files?.length || state !== CHAT_STATES.AUTHENTICATED || atCapacity) return;
+      void addFiles(files);
+    },
+    [state, pendingImages.length, pendingAttachments.length, addFiles]
   );
 
   const handlePaste = useCallback(
@@ -621,7 +722,21 @@ export function ChatPage() {
     !!(authModal.authUrl || authModal.deviceCode || authModal.isManualToken);
 
   return (
-    <div className="flex h-screen w-full min-h-0 overflow-hidden bg-gradient-to-br from-background via-background to-violet-950/10">
+    <div
+      className={`flex h-screen w-full min-h-0 overflow-hidden bg-gradient-to-br from-background via-background to-violet-950/10 relative ${isDragOver ? 'ring-2 ring-inset ring-violet-500 ring-offset-2 ring-offset-background' : ''}`}
+      onDragOver={handleDragOver}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {isDragOver && (
+        <div
+          className="absolute inset-0 z-40 pointer-events-none flex items-center justify-center bg-violet-500/10 border-2 border-dashed border-violet-500 rounded-none"
+          aria-hidden
+        >
+          <span className="text-violet-600 dark:text-violet-400 font-medium text-lg">Drop files here</span>
+        </div>
+      )}
       <AuthModal
         open={showAuthModal}
         authModal={authModal}
@@ -945,7 +1060,7 @@ export function ChatPage() {
         </div>
         <div className="shrink-0 p-3 sm:p-4 md:p-6 border-t border-border bg-card/30 backdrop-blur-sm">
             <div className="flex flex-col gap-2">
-              {(pendingImages.length > 0 || pendingVoice) && (
+              {(pendingImages.length > 0 || pendingVoice || pendingAttachments.length > 0) && (
                 <div className="flex flex-wrap gap-2 items-center">
                   {pendingVoice && (
                     <div className="relative flex items-center gap-2 px-3 py-2 rounded-xl border border-border/50 bg-card/60">
@@ -961,7 +1076,7 @@ export function ChatPage() {
                     </div>
                   )}
                   {pendingImages.map((dataUrl, i) => (
-                    <div key={i} className="relative inline-block">
+                    <div key={`img-${i}`} className="relative inline-block">
                       <img
                         src={dataUrl}
                         alt=""
@@ -977,16 +1092,37 @@ export function ChatPage() {
                       </button>
                     </div>
                   ))}
+                  {pendingAttachments.map((a, i) => (
+                    <div
+                      key={`att-${i}`}
+                      className="relative flex items-center gap-2 pl-2 pr-1 py-1.5 min-h-9 rounded-xl border border-border/50 bg-card/60 max-w-[180px]"
+                    >
+                      <FileIcon pathOrName={a.name} size={16} className="shrink-0 text-muted-foreground" />
+                      <span className="text-xs truncate text-foreground min-w-0" title={a.name}>
+                        {a.name}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => removePendingAttachment(i)}
+                        className="shrink-0 size-5 rounded-full bg-destructive text-white flex items-center justify-center hover:opacity-90"
+                        aria-label="Remove attachment"
+                      >
+                        <X className="size-3" aria-hidden />
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
-              {(voiceRecorder.error || voiceUploadError) && (
-                <p className="text-destructive text-sm">{voiceRecorder.error ?? voiceUploadError}</p>
+              {(voiceRecorder.error || voiceUploadError || attachmentUploadError) && (
+                <p className="text-destructive text-sm">
+                  {voiceRecorder.error ?? voiceUploadError ?? attachmentUploadError}
+                </p>
               )}
               <div className="flex items-end gap-2 sm:gap-3 bg-card rounded-2xl border border-border p-2 sm:p-3 shadow-xl shadow-violet-500/5">
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/*"
+                  accept={ACCEPT_FILES}
                   multiple
                   className="hidden"
                   onChange={handleFileChange}
@@ -994,10 +1130,13 @@ export function ChatPage() {
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  disabled={state !== CHAT_STATES.AUTHENTICATED || pendingImages.length >= MAX_PENDING_IMAGES}
+                  disabled={
+                    state !== CHAT_STATES.AUTHENTICATED ||
+                    pendingImages.length + pendingAttachments.length >= MAX_PENDING_TOTAL
+                  }
                   className="size-8 sm:size-9 rounded-md flex items-center justify-center text-violet-400 hover:text-violet-500 hover:bg-violet-500/10 transition-colors shrink-0 disabled:opacity-50"
-                  title="Attach image"
-                  aria-label="Attach image"
+                  title="Attach files"
+                  aria-label="Attach files"
                 >
                   <Paperclip className="size-3.5 sm:size-4" />
                 </button>
