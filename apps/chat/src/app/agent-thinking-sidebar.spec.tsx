@@ -398,4 +398,36 @@ describe('AgentThinkingSidebar', () => {
     expect(screen.getByText('echo b')).toBeTruthy();
     expect(screen.getByText('echo c')).toBeTruthy();
   });
+
+  it('expanded panel has scrollable activity area', () => {
+    const sessionActivity = [
+      {
+        id: 'e1',
+        created_at: new Date().toISOString(),
+        story: [
+          { id: 's1', type: 'stream_start', message: 'Started', timestamp: new Date().toISOString() },
+          { id: 's2', type: 'tool_call', message: 'Ran', timestamp: new Date().toISOString(), command: 'ls' },
+        ],
+      },
+    ];
+    render(
+      <AgentThinkingSidebar isCollapsed={false} onToggle={vi.fn()} sessionActivity={sessionActivity} />
+    );
+    const scrollArea = document.querySelector('.overflow-y-auto');
+    expect(scrollArea).toBeTruthy();
+    expect(screen.getByPlaceholderText('Search activity...')).toBeTruthy();
+  });
+
+  it('collapsed panel with activity has scrollable summary container', () => {
+    const storyItems = [
+      { id: '1', type: 'stream_start', message: 'Started', timestamp: new Date().toISOString() },
+      { id: '2', type: 'tool_call', message: 'Ran', timestamp: new Date().toISOString(), command: 'pwd' },
+    ];
+    const { container } = render(
+      <AgentThinkingSidebar isCollapsed onToggle={vi.fn()} storyItems={storyItems} isStreaming={false} />
+    );
+    const summary = container.querySelector('[aria-label="Activity summary"]');
+    expect(summary).toBeTruthy();
+    expect(summary?.classList.contains('overflow-y-auto')).toBe(true);
+  });
 });

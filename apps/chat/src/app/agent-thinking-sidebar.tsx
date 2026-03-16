@@ -53,6 +53,7 @@ export type SessionActivityEntry = {
 const ACTIVITY_ESTIMATE_HEIGHT = 32;
 const ACTIVITY_GAP = 8;
 const ACTIVITY_VIRTUALIZE_THRESHOLD = 15;
+const ACTIVITY_SCROLL_AT_BOTTOM_PX = 2;
 const REASONING_MAX_HEIGHT_RATIO = 0.75;
 const COMMAND_GROUP_MIN = 3;
 
@@ -367,6 +368,7 @@ export function AgentThinkingSidebar({
     hasThinking: false,
     streaming: false,
   });
+  const scrolledActivityOnOpenRef = useRef(false);
   const prevStreamingRef = useRef(isStreaming);
   const completeSinceRef = useRef<number>(0);
   const [activitySearchQuery, setActivitySearchQuery] = useState('');
@@ -386,7 +388,10 @@ export function AgentThinkingSidebar({
     setScrollContainerReady((prev) => (el ? true : prev));
   }, []);
   useEffect(() => {
-    if (isCollapsed) setScrollContainerReady(false);
+    if (isCollapsed) {
+      setScrollContainerReady(false);
+      scrolledActivityOnOpenRef.current = false;
+    }
   }, [isCollapsed]);
 
   useEffect(() => {
@@ -528,6 +533,30 @@ export function AgentThinkingSidebar({
       activityEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [fullStoryItems.length, sessionActivity.length, displayThinkingText, isStreaming]);
+
+  useEffect(() => {
+    if (isCollapsed || !scrollContainerReady || displayList.length === 0 || scrolledActivityOnOpenRef.current) return;
+    scrolledActivityOnOpenRef.current = true;
+    let cancelled = false;
+    const id = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const endEl = activityEndRef.current;
+        if (cancelled || !endEl || typeof endEl.scrollIntoView !== 'function') return;
+        endEl.scrollIntoView({ behavior: 'auto' });
+        requestAnimationFrame(() => {
+          const s = activityScrollRef.current;
+          const atBottom = s ? s.scrollHeight - s.scrollTop - s.clientHeight <= ACTIVITY_SCROLL_AT_BOTTOM_PX : false;
+          if (!atBottom && activityEndRef.current) {
+            activityEndRef.current.scrollIntoView({ behavior: 'auto' });
+          }
+        });
+      });
+    });
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(id);
+    };
+  }, [isCollapsed, scrollContainerReady, displayList.length]);
 
   const runCopyWithAnimation = useCallback(async () => {
     if (downloadAnimating) return;
@@ -760,7 +789,8 @@ export function AgentThinkingSidebar({
         const collapsedChainList =
           !isStreaming && displayList.length > 0 ? [...displayList, taskCompleteEntry] : displayList;
         return (
-        <div className="p-3 flex flex-col items-center gap-0 min-h-0 shrink-0">
+        <div className="flex-1 min-h-0 overflow-y-auto min-w-0" aria-label="Activity summary">
+          <div className="p-3 flex flex-col items-center gap-0">
           {collapsedChainList.map((item, i) => {
             const variant = item.kind === 'entry' ? getBlockVariant(item.entry) : 'tool_call';
             const bgColor = ACTIVITY_DOT_COLOR[variant] ?? ACTIVITY_DOT_COLOR.default;
@@ -797,6 +827,7 @@ export function AgentThinkingSidebar({
               </span>
             );
           })}
+          </div>
         </div>
         );
       })()}
