@@ -119,6 +119,7 @@ async function bootstrap() {
           images?: string[];
           audio?: string;
           audioFilename?: string;
+          attachmentFilenames?: string[];
         };
         void orchestrator.handleClientMessage(msg);
       } catch {

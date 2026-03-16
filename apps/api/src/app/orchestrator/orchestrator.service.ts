@@ -96,6 +96,7 @@ export class OrchestratorService implements OnModuleInit {
     images?: string[];
     audio?: string;
     audioFilename?: string;
+    attachmentFilenames?: string[];
     story?: Array<{ id: string; type: string; message: string; timestamp: string; details?: string }>;
   }): Promise<void> {
     const action = msg.action;
@@ -120,7 +121,13 @@ export class OrchestratorService implements OnModuleInit {
         this.handleLogout();
         break;
       case WS_ACTION.SEND_CHAT_MESSAGE:
-        await this.handleChatMessage(msg.text ?? '', msg.images, msg.audio, msg.audioFilename);
+        await this.handleChatMessage(
+          msg.text ?? '',
+          msg.images,
+          msg.audio,
+          msg.audioFilename,
+          msg.attachmentFilenames
+        );
         break;
       case WS_ACTION.SUBMIT_STORY:
         this.handleSubmitStory(msg.story ?? []);
@@ -207,7 +214,13 @@ export class OrchestratorService implements OnModuleInit {
     this.strategy.executeLogout(connection);
   }
 
-  private async handleChatMessage(text: string, images?: string[], audio?: string, audioFilenameFromClient?: string): Promise<void> {
+  private async handleChatMessage(
+    text: string,
+    images?: string[],
+    audio?: string,
+    audioFilenameFromClient?: string,
+    attachmentFilenames?: string[]
+  ): Promise<void> {
     if (!this.isAuthenticated) {
       this._send(WS_EVENT.ERROR, { message: ERROR_CODE.NEED_AUTH });
       return;
@@ -266,6 +279,17 @@ export class OrchestratorService implements OnModuleInit {
       voiceContext = path ? `\n\nThe user attached a voice recording. File path: ${path}\n\n` : '';
     }
 
+    let attachmentContext = '';
+    if (attachmentFilenames?.length) {
+      const paths = attachmentFilenames
+        .map((f) => this.uploadsService.getPath(f))
+        .filter((p): p is string => p !== null);
+      attachmentContext =
+        paths.length > 0
+          ? `\n\nThe user attached ${paths.length} file(s). Full paths (for reference):\n${paths.map((p) => `- ${p}`).join('\n')}\n\n`
+          : '';
+    }
+
     const atPathRegex = /@([^\s@]+)/g;
     const atPaths = [...new Set((text.match(atPathRegex) ?? []).map((m) => m.slice(1)))];
     let fileContext = '';
@@ -291,7 +315,7 @@ export class OrchestratorService implements OnModuleInit {
       }
     }
 
-    const fullPrompt = `${fileContext}${imageContext}${voiceContext}\n${text}`.trim();
+    const fullPrompt = `${fileContext}${imageContext}${voiceContext}${attachmentContext}\n${text}`.trim();
     const model = this.modelStore.get();
 
     const syntheticStepId = 'generating-response';

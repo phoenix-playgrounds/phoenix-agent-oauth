@@ -4,6 +4,7 @@ import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { ConfigService } from '../config/config.service';
+import { extFromMimetype } from './uploads-handler';
 
 const DATA_URL_REGEX = /^data:([^;]+);base64,(.+)$/;
 
@@ -46,6 +47,12 @@ export class UploadsService {
   async saveAudioFromBuffer(buffer: Buffer, mimeType: string): Promise<string> {
     this.ensureUploadsDir();
     const ext = audioExtFromMime(mimeType);
+    return this.writeFile(ext, buffer);
+  }
+
+  async saveFileFromBuffer(buffer: Buffer, mimetype: string): Promise<string> {
+    this.ensureUploadsDir();
+    const ext = extFromMimetype(mimetype);
     return this.writeFile(ext, buffer);
   }
 
