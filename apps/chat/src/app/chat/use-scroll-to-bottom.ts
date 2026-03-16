@@ -42,13 +42,20 @@ export function useScrollToBottom(whenToScroll: unknown) {
 
   useEffect(() => {
     if (!userWasAtBottomRef.current && !userJustSentRef.current) return;
+    let cancelled = false;
     const id = requestAnimationFrame(() => {
-      endRef.current?.scrollIntoView({ behavior: 'smooth' });
-      userJustSentRef.current = false;
-      userWasAtBottomRef.current = true;
-      setIsAtBottom(true);
+      requestAnimationFrame(() => {
+        if (cancelled) return;
+        endRef.current?.scrollIntoView({ behavior: 'smooth' });
+        userJustSentRef.current = false;
+        userWasAtBottomRef.current = true;
+        setIsAtBottom(true);
+      });
     });
-    return () => cancelAnimationFrame(id);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(id);
+    };
   }, [whenToScroll]);
 
   const onScroll = useCallback(() => {

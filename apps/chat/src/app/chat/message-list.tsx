@@ -216,12 +216,17 @@ export const MessageList = forwardRef<
   useEffect(() => {
     if (!scrollRef || messages.length === 0 || hasScrolledToBottomOnMountRef.current) return;
     hasScrolledToBottomOnMountRef.current = true;
+    let cancelled = false;
     const id = requestAnimationFrame(() => {
-      if (scrollRef.current) {
+      requestAnimationFrame(() => {
+        if (cancelled || !scrollRef.current) return;
         virtualizer.scrollToIndex(messages.length - 1, { align: 'end', behavior: 'auto' });
-      }
+      });
     });
-    return () => cancelAnimationFrame(id);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(id);
+    };
   }, [scrollRef, messages.length, virtualizer]);
 
   const listContent = scrollRef && virtualItems ? (
