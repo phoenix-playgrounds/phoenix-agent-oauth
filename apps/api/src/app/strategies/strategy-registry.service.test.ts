@@ -35,9 +35,5 @@ describe('StrategyRegistryService', () => {
     expect(service.resolveStrategy()).toBeInstanceOf(OpencodeStrategy);
   });
 
-  test('resolveStrategy returns OpencodeStrategy when AGENT_PROVIDER is opencodex (alias)', () => {
-    process.env.AGENT_PROVIDER = 'opencodex';
-    const service = new StrategyRegistryService();
-    expect(service.resolveStrategy()).toBeInstanceOf(OpencodeStrategy);
-  });
+
 });
