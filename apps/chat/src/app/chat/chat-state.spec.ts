@@ -8,6 +8,8 @@ import {
   RESPONSE_TIMEOUT_MS,
   RECONNECT_INTERVAL_MS,
   WS_CLOSE,
+  truncateError,
+  ERROR_MESSAGE_MAX_DISPLAY_LENGTH,
   type ChatState,
 } from './chat-state';
 
@@ -73,5 +75,21 @@ describe('chat-state', () => {
   it('isRetryableError returns true for other error messages', () => {
     expect(isRetryableError('Response timed out. The AI took too long to respond.')).toBe(true);
     expect(isRetryableError('An unexpected error occurred')).toBe(true);
+  });
+
+  it('truncateError returns empty string for null', () => {
+    expect(truncateError(null)).toBe('');
+  });
+
+  it('truncateError returns message unchanged when under max length', () => {
+    const short = 'Token data is not available.';
+    expect(truncateError(short)).toBe(short);
+  });
+
+  it('truncateError appends ... when over max length', () => {
+    const long = 'a'.repeat(ERROR_MESSAGE_MAX_DISPLAY_LENGTH + 10);
+    const out = truncateError(long);
+    expect(out.endsWith('...')).toBe(true);
+    expect(out.length).toBe(ERROR_MESSAGE_MAX_DISPLAY_LENGTH + 3);
   });
 });

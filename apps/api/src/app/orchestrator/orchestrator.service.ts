@@ -400,10 +400,11 @@ export class OrchestratorService implements OnModuleInit {
       }, callbacks, systemPrompt || undefined);
       this.finishStream(accumulated, syntheticStepId, syntheticStep);
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      if (message === INTERRUPTED_MESSAGE) {
+      const raw = err instanceof Error ? err.message : String(err);
+      if (raw === INTERRUPTED_MESSAGE) {
         this.finishStream(accumulated, syntheticStepId, syntheticStep);
       } else {
+        const message = raw.length > 500 ? raw.slice(0, 500).trim() + '...' : raw;
         this._send(WS_EVENT.ERROR, { message });
       }
     } finally {

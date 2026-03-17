@@ -1,6 +1,6 @@
 import { Logger } from '@nestjs/common';
 import { spawn, type ChildProcess } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import type { AuthConnection, LogoutConnection } from './strategy.types';
 import { INTERRUPTED_MESSAGE, type AgentStrategy } from './strategy.types';
@@ -50,7 +50,7 @@ export class OpenaiCodexStrategy implements AgentStrategy {
   executeAuth(connection: AuthConnection): void {
     this.currentConnection = connection;
     this.ensureSettings();
-    connection.sendAuthManualToken();
+    connection.sendAuthUrlGenerated('https://auth.openai.com/device');
 
     let authUrlExtracted = false;
     let deviceCodeExtracted = false;
@@ -90,9 +90,8 @@ export class OpenaiCodexStrategy implements AgentStrategy {
         this.authCancel = null;
         const isNotFound = (err as NodeJS.ErrnoException)?.code === 'ENOENT';
         if (isNotFound) {
-          this.logger.warn(
-            'Codex CLI not found on PATH. Use "Paste API Key or Token" in the dialog to sign in with an API key.'
-          );
+          this.logger.warn('Codex CLI not found. Install @openai/codex or add codex to PATH.');
+          this.currentConnection?.sendError('Codex CLI not found. Install the app dependency or add codex to PATH.');
         } else {
           this.logger.error('Codex Auth Process error', err);
         }
@@ -113,24 +112,6 @@ export class OpenaiCodexStrategy implements AgentStrategy {
   submitAuthCode(code: string): void {
     const trimmed = (code ?? '').trim();
     if (!trimmed) return;
-
-    const looksLikeApiKey = trimmed.startsWith('sk-') || trimmed.length > 40;
-    if (looksLikeApiKey && this.currentConnection) {
-      this.authCancel?.();
-      this.authCancel = null;
-      this.activeAuthProcess = null;
-      const authFile = join(getCodexHome(), 'auth.json');
-      try {
-        writeFileSync(authFile, JSON.stringify({ api_key: trimmed }), { mode: 0o600 });
-        this.currentConnection.sendAuthSuccess();
-      } catch (err) {
-        this.logger.error('Failed to write Codex auth.json', err);
-        this.currentConnection.sendAuthStatus('unauthenticated');
-      }
-      this.currentConnection = null;
-      return;
-    }
-
     if (this.activeAuthProcess?.stdin) {
       this.activeAuthProcess.stdin.write(trimmed + '\n');
     }
@@ -203,7 +184,6 @@ export class OpenaiCodexStrategy implements AgentStrategy {
       if (!existsSync(playgroundDir)) {
         mkdirSync(playgroundDir, { recursive: true });
       }
-
       const effectivePrompt = systemPrompt ? `${systemPrompt}\n${prompt}` : prompt;
       const codexCmd = getCodexCommand();
       const codexArgs = ['exec', '--yolo', effectivePrompt];

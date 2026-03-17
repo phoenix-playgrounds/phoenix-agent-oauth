@@ -31,7 +31,7 @@ import { useVoiceRecorder } from '../chat/use-voice-recorder';
 import { shouldHideThemeSwitch } from '../embed-config';
 import { FileExplorer, FileViewerPanel, type PlaygroundEntry } from '../file-explorer/file-explorer';
 import { ThemeToggle } from '../theme-toggle';
-import { CHAT_STATES, getChatInputPlaceholder, isRetryableError, STATE_LABELS } from '../chat/chat-state';
+import { CHAT_STATES, getChatInputPlaceholder, isRetryableError, STATE_LABELS, truncateError } from '../chat/chat-state';
 import type { ServerMessage } from '../chat/chat-state';
 import { apiRequest, isAuthenticated, isChatModelLocked } from '../api-url';
 import { API_PATHS } from '../api-paths';
@@ -950,7 +950,7 @@ export function ChatPage() {
                 <div className="min-h-[14px] mt-0.5 flex items-center">
                   <p className={`text-[10px] sm:text-xs ${state === CHAT_STATES.AWAITING_RESPONSE ? 'text-warning' : statusClass}`}>
                     {state === CHAT_STATES.AGENT_OFFLINE && errorMessage
-                      ? errorMessage
+                      ? truncateError(errorMessage)
                       : STATE_LABELS[state] ?? state}
                   </p>
                 </div>
@@ -1025,7 +1025,7 @@ export function ChatPage() {
         </header>
         {errorMessage && state === CHAT_STATES.ERROR && (
           <div className="relative z-[1] flex shrink-0 items-center justify-between gap-2 px-4 py-2 bg-destructive/10 border-b border-border/50">
-            <span className="text-destructive text-sm flex-1 min-w-0 break-words">{errorMessage}</span>
+            <span className="text-destructive text-sm flex-1 min-w-0 break-words" title={errorMessage ?? undefined}>{truncateError(errorMessage)}</span>
             <div className="flex items-center gap-2 shrink-0">
               {isRetryableError(errorMessage) && (
                 <button
