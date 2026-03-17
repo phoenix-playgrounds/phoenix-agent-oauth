@@ -69,11 +69,10 @@ function toTomlBlock(name: string, entry: McpServerEntry): string {
     return lines.join('\n');
   }
 
-  // Streamable-HTTP
+  // Streamable-HTTP — Codex does not support env for url-based servers; use bearer_token_env_var if needed
   return [
     `[mcp_servers."${name}"]`,
     `url = "${entry.serverUrl}"`,
-    `env = { AUTHORIZATION = "${entry.authHeader ?? ''}" }`,
   ].join('\n');
 }
 
@@ -171,11 +170,13 @@ const PROVIDER_WRITERS: Record<string, (servers: Record<string, McpServerEntry>)
 
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
 
-    // Remove any existing [mcp_servers."..."] blocks that we're about to write
+    // Remove any existing [mcp_servers."..."] blocks that we're about to write.
+    // Match through to the next table header or EOF so we don't cut inside args = [...].
     let cleaned = existingContent;
     for (const name of Object.keys(servers)) {
+      const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const pattern = new RegExp(
-        `\\[mcp_servers\\."${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"\\][^[]*`,
+        `(\\[mcp_servers\\.\"${escaped}\\"\\][\\s\\S]*?)(?=\\n\\[mcp_servers\\.|$)`,
         'gs',
       );
       cleaned = cleaned.replace(pattern, '');

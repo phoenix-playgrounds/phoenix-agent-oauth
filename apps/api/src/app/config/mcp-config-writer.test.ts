@@ -249,7 +249,6 @@ describe('writeMcpConfig', () => {
       const content = readFileSync(configPath, 'utf8');
       expect(content).toContain('[mcp_servers."playgrounds-dev"]');
       expect(content).toContain('url = "https://my.playgrounds.dev"');
-      expect(content).toContain('AUTHORIZATION = "Bearer plgr_test_key789"');
     });
 
     it('preserves existing config.toml content', () => {
@@ -275,6 +274,21 @@ describe('writeMcpConfig', () => {
       expect(content).toContain('type = "stdio"');
       expect(content).toContain('command = "uvx"');
       expect(content).toContain('args = ["mcp-server-docker"]');
+    });
+
+    it('replacing block with args array does not corrupt toml', () => {
+      process.env.MCP_CONFIG_JSON = JSON.stringify({
+        mcpServers: {
+          github: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-github'] },
+        },
+      });
+      writeMcpConfig();
+      const contentAfterFirst = readFileSync(join(testHome, '.codex', 'config.toml'), 'utf8');
+      expect(contentAfterFirst).toContain('args = ["-y", "@modelcontextprotocol/server-github"]');
+      writeMcpConfig();
+      const contentAfterSecond = readFileSync(join(testHome, '.codex', 'config.toml'), 'utf8');
+      expect(contentAfterSecond).not.toMatch(/^\s*\]\s*$/m);
+      expect(contentAfterSecond).toContain('[mcp_servers."github"]');
     });
   });
 

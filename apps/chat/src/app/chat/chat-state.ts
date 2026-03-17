@@ -48,6 +48,14 @@ export const ERROR_MESSAGES_NO_RETRY: ReadonlySet<string> = new Set([
   'Your session was taken over by another client',
 ]);
 
+export const ERROR_MESSAGE_MAX_DISPLAY_LENGTH = 280;
+
+export function truncateError(message: string | null, maxLen = ERROR_MESSAGE_MAX_DISPLAY_LENGTH): string {
+  if (!message) return '';
+  if (message.length <= maxLen) return message;
+  return message.slice(0, maxLen).trim() + '...';
+}
+
 export function isRetryableError(errorMessage: string | null): boolean {
   return !!errorMessage && !ERROR_MESSAGES_NO_RETRY.has(errorMessage);
 }
