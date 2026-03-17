@@ -2,16 +2,18 @@ import { describe, it, expect, vi } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useChatDisplayState } from './use-chat-display-state';
 import { CHAT_STATES } from './chat-state';
+import type { ChatMessage } from './message-list';
+import type { ThinkingActivity } from './thinking-types';
 
 vi.mock('./use-mobile-brain-classes', () => ({
   useMobileBrainClasses: () => ({ brain: 'brain-c', accent: 'accent-c' }),
 }));
 
 const baseParams = {
-  messages: [] as Array<{ role: string; body: string; created_at: string; story?: unknown[]; activityId?: string }>,
+  messages: [] as ChatMessage[],
   searchQuery: '',
   state: CHAT_STATES.AUTHENTICATED,
-  activityLog: [],
+  activityLog: [] as ThinkingActivity[],
   sessionActivity: [],
   lastSentMessage: null as string | null,
 };
@@ -59,7 +61,7 @@ describe('useChatDisplayState', () => {
   });
 
   it('returns displayStory from activityLog when AWAITING_RESPONSE', () => {
-    const activityLog = [
+    const activityLog: ThinkingActivity[] = [
       { id: '1', type: 'step', message: 'Step', timestamp: new Date(), details: '' },
     ];
     const { result } = renderHook(() =>

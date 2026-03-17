@@ -133,7 +133,7 @@ describe('filterVisibleStoryItems', () => {
   it('excludes AskUserQuestion entries', () => {
     const result = filterVisibleStoryItems([visibleEntry, hiddenEntry, visibleEntry]);
     expect(result).toHaveLength(2);
-    expect(result.every((e) => e.type !== 'AskUserQuestion')).toBe(true);
+    expect(result.every((e: StoryEntry) => e.type !== 'AskUserQuestion')).toBe(true);
   });
 
   it('returns empty array when all are hidden', () => {

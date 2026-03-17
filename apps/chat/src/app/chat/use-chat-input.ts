@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { getAtMentionState, valueAfterAtMatchesEntry } from './file-mention-dropdown';
+import type { PlaygroundEntryItem } from './use-playground-files';
 
 export interface UseChatInputParams {
-  playgroundEntries: Array<{ path: string; name?: string }>;
+  playgroundEntries: PlaygroundEntryItem[];
   onSendRef: React.MutableRefObject<() => void>;
 }
 

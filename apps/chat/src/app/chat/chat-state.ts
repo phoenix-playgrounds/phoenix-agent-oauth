@@ -37,7 +37,11 @@ export function getChatInputPlaceholder(state: ChatState): string {
 export const RESPONSE_TIMEOUT_MS = 600_000;
 export const RECONNECT_INTERVAL_MS = 500;
 
-export { WS_CLOSE } from '@shared/ws-constants';
+export const WS_CLOSE = {
+  ANOTHER_SESSION_ACTIVE: 4000,
+  UNAUTHORIZED: 4001,
+  SESSION_TAKEN_OVER: 4002,
+} as const;
 
 export const ERROR_MESSAGES_NO_RETRY: ReadonlySet<string> = new Set([
   'Another session is already active',

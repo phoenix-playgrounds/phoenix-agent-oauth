@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { apiRequest } from './api-url';
 import { API_PATHS } from './api-paths';
 import { filterVisibleStoryItems, getActivityLabel, type StoryEntry } from './agent-thinking-utils';

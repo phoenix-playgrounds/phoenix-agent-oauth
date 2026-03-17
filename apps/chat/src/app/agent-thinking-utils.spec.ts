@@ -19,7 +19,7 @@ describe('filterVisibleStoryItems', () => {
       entry('3', 'step'),
     ];
     expect(filterVisibleStoryItems(items)).toHaveLength(2);
-    expect(filterVisibleStoryItems(items).map((e) => e.type)).toEqual(['stream_start', 'step']);
+    expect(filterVisibleStoryItems(items).map((e: StoryEntry) => e.type)).toEqual(['stream_start', 'step']);
   });
 
   it('returns all entries when none are hidden', () => {
@@ -38,7 +38,7 @@ describe('buildFullStoryItems', () => {
     ];
     const story = [entry('c', 'step'), entry('d', 'step')];
     const result = buildFullStoryItems(session, past, story);
-    expect(result.map((e) => e.id)).toEqual(['b', 'c', 'a', 'd']);
+    expect(result.map((e: StoryEntry) => e.id)).toEqual(['b', 'c', 'a', 'd']);
   });
 
   it('filters visible only', () => {
