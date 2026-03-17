@@ -61,6 +61,7 @@ export class OrchestratorService implements OnModuleInit {
     private readonly chatPromptContext: ChatPromptContextService,
   ) {
     this.strategy = this.strategyRegistry.resolveStrategy();
+    void this.playgroundsService;
   }
 
   async onModuleInit(): Promise<void> {

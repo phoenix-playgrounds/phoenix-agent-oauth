@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { useRef } from 'react';
 import { useChatInput } from './use-chat-input';
 
 describe('useChatInput', () => {

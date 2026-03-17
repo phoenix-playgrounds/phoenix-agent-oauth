@@ -20,7 +20,9 @@ export function useChatActivityLog(refetchPlaygrounds: () => void) {
 
   const thinkingCallbacks = useMemo(
     () => ({
-      onStreamStartData: (_data: { model?: string }) => {},
+      onStreamStartData: (_data: { model?: string }) => {
+        /* no-op; model can be used for future display */
+      },
       onReasoningStart: () => {
         const id = nextActivityId();
         thinkingEntryIdRef.current = id;

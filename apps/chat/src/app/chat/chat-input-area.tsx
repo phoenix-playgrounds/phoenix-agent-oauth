@@ -2,8 +2,8 @@ import { Mic, Paperclip, Send, Square, X } from 'lucide-react';
 import { useRef } from 'react';
 import { MentionInput } from './mention-input';
 import { FileMentionDropdown } from './file-mention-dropdown';
-import { getChatInputPlaceholder } from './chat-state';
 import { CHAT_STATES } from './chat-state';
+import type { PlaygroundEntryItem } from './use-playground-files';
 import { FileIcon } from '../file-icon';
 
 const ACCEPT_FILES =
@@ -20,7 +20,7 @@ export interface ChatInputAreaProps {
   chatInputRef: React.RefObject<HTMLDivElement | null>;
   mentionOpen: boolean;
   atMentionQuery: string;
-  playgroundEntries: Array<{ path: string; name?: string }>;
+  playgroundEntries: PlaygroundEntryItem[];
   onMentionSelect: (path: string) => void;
   onMentionClose: () => void;
   pendingImages: string[];
