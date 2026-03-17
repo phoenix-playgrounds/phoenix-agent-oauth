@@ -2,6 +2,7 @@ import { describe, test, expect, afterEach } from 'bun:test';
 import { StrategyRegistryService } from './strategy-registry.service';
 import { MockStrategy } from './mock.strategy';
 import { ClaudeCodeStrategy } from './claude-code.strategy';
+import { OpenaiCodexStrategy } from './openai-codex.strategy';
 import { OpencodeStrategy } from './opencode.strategy';
 
 describe('StrategyRegistryService', () => {
@@ -39,5 +40,11 @@ describe('StrategyRegistryService', () => {
     process.env.AGENT_PROVIDER = 'opencodex';
     const service = new StrategyRegistryService();
     expect(service.resolveStrategy()).toBeInstanceOf(OpencodeStrategy);
+  });
+
+  test('resolveStrategy returns OpenaiCodexStrategy when AGENT_PROVIDER is openai-codex', () => {
+    process.env.AGENT_PROVIDER = 'openai-codex';
+    const service = new StrategyRegistryService();
+    expect(service.resolveStrategy()).toBeInstanceOf(OpenaiCodexStrategy);
   });
 });

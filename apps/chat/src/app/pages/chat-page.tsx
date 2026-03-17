@@ -747,8 +747,11 @@ export function ChatPage() {
     state === CHAT_STATES.AUTHENTICATED || state === CHAT_STATES.AWAITING_RESPONSE;
 
   const showAuthModal =
-    state === CHAT_STATES.AUTH_PENDING &&
-    !!(authModal.authUrl || authModal.deviceCode || authModal.isManualToken);
+    state === CHAT_STATES.AUTH_PENDING || state === CHAT_STATES.UNAUTHENTICATED;
+  const authModalForModal =
+    state === CHAT_STATES.UNAUTHENTICATED
+      ? { ...authModal, isManualToken: true }
+      : authModal;
 
   return (
     <div
@@ -768,9 +771,12 @@ export function ChatPage() {
       )}
       <AuthModal
         open={showAuthModal}
-        authModal={authModal}
+        authModal={authModalForModal}
         onClose={cancelAuth}
-        onSubmitCode={submitAuthCode}
+        onSubmitCode={(code) => {
+          if (state === CHAT_STATES.UNAUTHENTICATED) send({ action: 'initiate_auth' });
+          submitAuthCode(code);
+        }}
       />
       {settingsOpen && (
         <>
@@ -906,7 +912,7 @@ export function ChatPage() {
         </div>
       )}
       <main
-        className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-transparent"
+        className="relative z-10 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-transparent"
         style={{ minWidth: MAIN_CONTENT_MIN_WIDTH_PX }}
       >
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden w-full">
@@ -1018,8 +1024,8 @@ export function ChatPage() {
           )}
         </header>
         {errorMessage && state === CHAT_STATES.ERROR && (
-          <div className="flex shrink-0 items-center justify-between gap-2 px-4 py-2 bg-destructive/10 border-b border-border/50">
-            <span className="text-destructive text-sm flex-1 min-w-0">{errorMessage}</span>
+          <div className="relative z-[1] flex shrink-0 items-center justify-between gap-2 px-4 py-2 bg-destructive/10 border-b border-border/50">
+            <span className="text-destructive text-sm flex-1 min-w-0 break-words">{errorMessage}</span>
             <div className="flex items-center gap-2 shrink-0">
               {isRetryableError(errorMessage) && (
                 <button

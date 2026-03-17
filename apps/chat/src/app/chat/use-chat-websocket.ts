@@ -160,6 +160,10 @@ export function useChatWebSocket(
           }
         } else {
           setState((s) => (s !== CHAT_STATES.AUTH_PENDING ? CHAT_STATES.UNAUTHENTICATED : s));
+          const ws = wsRef.current;
+          if (ws?.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ action: 'initiate_auth' }));
+          }
         }
         return;
       }
