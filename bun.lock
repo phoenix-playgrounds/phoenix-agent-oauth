@@ -7,6 +7,7 @@
       "dependencies": {
         "@nestjs/common": "^11.0.0",
         "@nestjs/core": "^11.0.0",
+        "@openai/codex": "^0.115.0",
         "@tanstack/react-virtual": "^3.13.0",
         "axios": "^1.6.0",
         "lucide-react": "^0.468.0",
@@ -72,7 +73,7 @@
     },
     "apps/api": {
       "name": "@playgrounds.dev/api",
-      "version": "0.0.1",
+      "version": "0.0.2",
       "dependencies": {
         "@fastify/helmet": "^13.0.2",
         "@fastify/multipart": "^9.0.1",
@@ -711,6 +712,20 @@
     "@nx/webpack": ["@nx/webpack@22.5.4", "", { "dependencies": { "@babel/core": "^7.23.2", "@nx/devkit": "22.5.4", "@nx/js": "22.5.4", "@phenomnomnominal/tsquery": "~6.1.4", "ajv": "^8.12.0", "autoprefixer": "^10.4.9", "babel-loader": "^9.1.2", "browserslist": "^4.26.0", "copy-webpack-plugin": "^10.2.4", "css-loader": "^6.4.0", "css-minimizer-webpack-plugin": "^5.0.0", "fork-ts-checker-webpack-plugin": "7.2.13", "less": "^4.1.3", "less-loader": "^11.1.0", "license-webpack-plugin": "^4.0.2", "loader-utils": "^2.0.3", "mini-css-extract-plugin": "~2.4.7", "parse5": "4.0.0", "picocolors": "^1.1.0", "postcss": "^8.4.38", "postcss-import": "~14.1.0", "postcss-loader": "^6.1.1", "rxjs": "^7.8.0", "sass": "^1.85.0", "sass-embedded": "^1.83.4", "sass-loader": "^16.0.4", "source-map-loader": "^5.0.0", "style-loader": "^3.3.0", "terser-webpack-plugin": "^5.3.3", "ts-loader": "^9.3.1", "tsconfig-paths-webpack-plugin": "4.2.0", "tslib": "^2.3.0", "webpack": "^5.101.3", "webpack-dev-server": "^5.2.1", "webpack-node-externals": "^3.0.0", "webpack-subresource-integrity": "^5.1.0" } }, "sha512-2yfnad1Rwh+VT6L5iCMfTMwtPETxedcjPLMoNpyDmZg7dJj5+Xx51ZibygBefLwCBpZV0xnOZPBxR7xGpQqpSA=="],
 
     "@nx/workspace": ["@nx/workspace@22.5.4", "", { "dependencies": { "@nx/devkit": "22.5.4", "@zkochan/js-yaml": "0.0.7", "chalk": "^4.1.0", "enquirer": "~2.3.6", "nx": "22.5.4", "picomatch": "4.0.2", "semver": "^7.6.3", "tslib": "^2.3.0", "yargs-parser": "21.1.1" } }, "sha512-TZeuCDy+VN/5zqMYxHw15HKe2Ppcb9WBOebz4bmXE206c8Aop3S9QeLfys00Uobt9ZaYh9QUeN0iFsZm7TNv0w=="],
+
+    "@openai/codex": ["@openai/codex@0.115.0", "", { "optionalDependencies": { "@openai/codex-darwin-arm64": "npm:@openai/codex@0.115.0-darwin-arm64", "@openai/codex-darwin-x64": "npm:@openai/codex@0.115.0-darwin-x64", "@openai/codex-linux-arm64": "npm:@openai/codex@0.115.0-linux-arm64", "@openai/codex-linux-x64": "npm:@openai/codex@0.115.0-linux-x64", "@openai/codex-win32-arm64": "npm:@openai/codex@0.115.0-win32-arm64", "@openai/codex-win32-x64": "npm:@openai/codex@0.115.0-win32-x64" }, "bin": { "codex": "bin/codex.js" } }, "sha512-uu689DHUzvuPcb39hJ+7fqy++TAvY32w9VggDpcz3HS0Sx0WadWoAPPcMK547P2T6AqfMsAtA8kspkR3tqErOg=="],
+
+    "@openai/codex-darwin-arm64": ["@openai/codex@0.115.0-darwin-arm64", "", { "os": "darwin", "cpu": "arm64" }, "sha512-wTWV+YlDTL0y0mL+FMmbzhilm+dPkbIZTe/lH3LwBzcEMhgSGLsPdZLfAiMND4wFE21HS7H0pjMogNQEMLQmqg=="],
+
+    "@openai/codex-darwin-x64": ["@openai/codex@0.115.0-darwin-x64", "", { "os": "darwin", "cpu": "x64" }, "sha512-EPzgymU4CFp83qjv29wXFwhWib3zC8g6SLTJGh2OpcJiOYyLY0bO53FB+QchL1jC9gm1uLyD5j5F3ddI0AbjIg=="],
+
+    "@openai/codex-linux-arm64": ["@openai/codex@0.115.0-linux-arm64", "", { "os": "linux", "cpu": "arm64" }, "sha512-40+SCyI+LvVx/iX30qH7dTQzWt9MZxDaK2E6YRB4hoYej5UALrhkFNzweHa5uvqvhmqGZCuagZOYB8285eGCgw=="],
+
+    "@openai/codex-linux-x64": ["@openai/codex@0.115.0-linux-x64", "", { "os": "linux", "cpu": "x64" }, "sha512-+6eRd2p4KMrhQvuF7XpjYIdCA2Ok2LbhOq+ywZdLpHbmwQ/Yynd0gJ/Q90xCeo2vloCwl9WsbsiVVSahG5FyWg=="],
+
+    "@openai/codex-win32-arm64": ["@openai/codex@0.115.0-win32-arm64", "", { "os": "win32", "cpu": "arm64" }, "sha512-yaYhQ0kPL9Kithmrr1vh5A4c+gqAMhMZeA/htTtkpWW8RQkmwgcYYpX/Ky2cEzu0w51pvxQQy63LgHftc+pg1Q=="],
+
+    "@openai/codex-win32-x64": ["@openai/codex@0.115.0-win32-x64", "", { "os": "win32", "cpu": "x64" }, "sha512-wtYf2HJCB+p+Uj7o1W08fRgZMzKCVGRQ4YdSfLRNfF4wwPqX5XsK9blsv7brukn5J9lclYxagiR6qGvbfHbD7w=="],
 
     "@oxc-resolver/binding-android-arm-eabi": ["@oxc-resolver/binding-android-arm-eabi@11.19.1", "", { "os": "android", "cpu": "arm" }, "sha512-aUs47y+xyXHUKlbhqHUjBABjvycq6YSD7bpxSW7vplUmdzAlJ93yXY6ZR0c1o1x5A/QKbENCvs3+NlY8IpIVzg=="],
 

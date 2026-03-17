@@ -1,13 +1,36 @@
 import { Logger } from '@nestjs/common';
 import { spawn, type ChildProcess } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, unlinkSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { AuthConnection, LogoutConnection } from './strategy.types';
 import { INTERRUPTED_MESSAGE, type AgentStrategy } from './strategy.types';
 import { runAuthProcess } from './auth-process-helper';
 
-const CODEX_CONFIG_DIR = join(process.env.HOME ?? '/home/node', '.codex');
-const CODEX_AUTH_FILE = join(CODEX_CONFIG_DIR, 'auth.json');
+const DEFAULT_CODEX_HOME = join(process.env.HOME ?? '/home/node', '.codex');
+const CODEX_BIN_NAME = process.platform === 'win32' ? 'codex.cmd' : 'codex';
+
+function getCodexHome(): string {
+  return process.env.SESSION_DIR ?? DEFAULT_CODEX_HOME;
+}
+
+function getCodexCommand(): string {
+  try {
+    const pkgPath = require.resolve('@openai/codex/package.json');
+    const nodeModules = join(pkgPath, '..', '..', '..');
+    const binPath = join(nodeModules, '.bin', CODEX_BIN_NAME);
+    if (existsSync(binPath)) return binPath;
+    const binPathUnix = join(nodeModules, '.bin', 'codex');
+    if (existsSync(binPathUnix)) return binPathUnix;
+  } catch {
+    /* @openai/codex not installed */
+  }
+  const cwd = process.cwd();
+  const localBin = join(cwd, 'node_modules', '.bin', CODEX_BIN_NAME);
+  if (existsSync(localBin)) return localBin;
+  const localBinUnix = join(cwd, 'node_modules', '.bin', 'codex');
+  if (existsSync(localBinUnix)) return localBinUnix;
+  return 'codex';
+}
 
 export class OpenaiCodexStrategy implements AgentStrategy {
   private readonly logger = new Logger(OpenaiCodexStrategy.name);
@@ -17,13 +40,26 @@ export class OpenaiCodexStrategy implements AgentStrategy {
   private currentStreamProcess: ChildProcess | null = null;
   private streamInterrupted = false;
 
+  ensureSettings(): void {
+    const codexHome = getCodexHome();
+    if (!existsSync(codexHome)) {
+      mkdirSync(codexHome, { recursive: true });
+    }
+  }
+
   executeAuth(connection: AuthConnection): void {
     this.currentConnection = connection;
+    this.ensureSettings();
+    connection.sendAuthManualToken();
+
     let authUrlExtracted = false;
     let deviceCodeExtracted = false;
+    const codexHome = getCodexHome();
+    const env = { ...process.env, CODEX_HOME: codexHome };
 
-    const { process: proc, cancel } = runAuthProcess('codex', ['login', '--device-auth'], {
-      env: process.env,
+    const codexCmd = getCodexCommand();
+    const { process: proc, cancel } = runAuthProcess(codexCmd, ['login', '--device-auth'], {
+      env,
       onData: (output) => {
         // eslint-disable-next-line no-control-regex -- strip ANSI escape codes
         const clean = output.replace(/\x1b\[[0-9;]*m/g, '');
@@ -50,7 +86,16 @@ export class OpenaiCodexStrategy implements AgentStrategy {
         this.currentConnection = null;
       },
       onError: (err) => {
-        this.logger.error('Codex Auth Process error', err);
+        this.activeAuthProcess = null;
+        this.authCancel = null;
+        const isNotFound = (err as NodeJS.ErrnoException)?.code === 'ENOENT';
+        if (isNotFound) {
+          this.logger.warn(
+            'Codex CLI not found on PATH. Use "Paste API Key or Token" in the dialog to sign in with an API key.'
+          );
+        } else {
+          this.logger.error('Codex Auth Process error', err);
+        }
       },
     });
 
@@ -66,20 +111,42 @@ export class OpenaiCodexStrategy implements AgentStrategy {
   }
 
   submitAuthCode(code: string): void {
+    const trimmed = (code ?? '').trim();
+    if (!trimmed) return;
+
+    const looksLikeApiKey = trimmed.startsWith('sk-') || trimmed.length > 40;
+    if (looksLikeApiKey && this.currentConnection) {
+      this.authCancel?.();
+      this.authCancel = null;
+      this.activeAuthProcess = null;
+      const authFile = join(getCodexHome(), 'auth.json');
+      try {
+        writeFileSync(authFile, JSON.stringify({ api_key: trimmed }), { mode: 0o600 });
+        this.currentConnection.sendAuthSuccess();
+      } catch (err) {
+        this.logger.error('Failed to write Codex auth.json', err);
+        this.currentConnection.sendAuthStatus('unauthenticated');
+      }
+      this.currentConnection = null;
+      return;
+    }
+
     if (this.activeAuthProcess?.stdin) {
-      this.activeAuthProcess.stdin.write((code ?? '').trim() + '\n');
+      this.activeAuthProcess.stdin.write(trimmed + '\n');
     }
   }
 
   clearCredentials(): void {
-    if (existsSync(CODEX_AUTH_FILE)) {
-      unlinkSync(CODEX_AUTH_FILE);
+    const authFile = join(getCodexHome(), 'auth.json');
+    if (existsSync(authFile)) {
+      unlinkSync(authFile);
     }
   }
 
   executeLogout(connection: LogoutConnection): void {
-    const logoutProcess = spawn('codex', ['logout'], {
-      env: { ...process.env },
+    const env = { ...process.env, CODEX_HOME: getCodexHome() };
+    const logoutProcess = spawn(getCodexCommand(), ['logout'], {
+      env,
       shell: false,
     });
 
@@ -103,12 +170,13 @@ export class OpenaiCodexStrategy implements AgentStrategy {
 
   checkAuthStatus(): Promise<boolean> {
     return new Promise((resolve) => {
-      if (!existsSync(CODEX_AUTH_FILE)) {
+      const authFile = join(getCodexHome(), 'auth.json');
+      if (!existsSync(authFile)) {
         resolve(false);
         return;
       }
       try {
-        const content = readFileSync(CODEX_AUTH_FILE, 'utf8');
+        const content = readFileSync(authFile, 'utf8');
         const auth = JSON.parse(content) as { access_token?: string; token?: string; api_key?: string };
         resolve(Boolean(auth?.access_token ?? auth?.token ?? auth?.api_key));
       } catch {
@@ -137,10 +205,12 @@ export class OpenaiCodexStrategy implements AgentStrategy {
       }
 
       const effectivePrompt = systemPrompt ? `${systemPrompt}\n${prompt}` : prompt;
+      const codexCmd = getCodexCommand();
       const codexArgs = ['exec', '--yolo', effectivePrompt];
+      const env = { ...process.env, CODEX_HOME: getCodexHome() };
 
-      const codexProcess = spawn('codex', codexArgs, {
-        env: { ...process.env },
+      const codexProcess = spawn(codexCmd, codexArgs, {
+        env,
         cwd: playgroundDir,
         shell: false,
       });

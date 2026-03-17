@@ -86,7 +86,7 @@ export const MODAL_OVERLAY_DARK = 'fixed inset-0 z-50 bg-black/50';
 export const MOBILE_SHEET_PANEL =
   'fixed top-0 bottom-0 z-50 w-[85vw] sm:w-[400px] max-w-full flex flex-col lg:hidden';
 export const MODAL_OVERLAY_CENTER =
-  'fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm';
+  'fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm';
 
 export const LOGO_ICON_BOX =
   'size-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/30 shrink-0';
