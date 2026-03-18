@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
+  buildFullStoryItems,
+  ensureUniqueStoryIds,
   filterVisibleStoryItems,
   formatCompactInteger,
   formatSessionDurationMs,
@@ -163,5 +165,89 @@ describe('filterVisibleStoryItems', () => {
 
   it('returns empty array for empty input', () => {
     expect(filterVisibleStoryItems([])).toEqual([]);
+  });
+});
+
+describe('ensureUniqueStoryIds', () => {
+  it('returns entries unchanged when all ids are unique', () => {
+    const entries: StoryEntry[] = [
+      { id: 'a', type: 'stream_start', message: '', timestamp: '' },
+      { id: 'b', type: 'reasoning_start', message: '', timestamp: '', details: 'x' },
+    ];
+    const result = ensureUniqueStoryIds(entries);
+    expect(result).toHaveLength(2);
+    expect(result[0].id).toBe('a');
+    expect(result[1].id).toBe('b');
+  });
+
+  it('assigns unique ids to duplicate ids by appending suffix', () => {
+    const entries: StoryEntry[] = [
+      { id: 'same', type: 'reasoning_start', message: '', timestamp: '', details: 'first' },
+      { id: 'same', type: 'reasoning_start', message: '', timestamp: '', details: 'second' },
+    ];
+    const result = ensureUniqueStoryIds(entries);
+    expect(result).toHaveLength(2);
+    expect(result[0].id).toBe('same');
+    expect(result[1].id).toBe('same-1');
+    expect(result[0].details).toBe('first');
+    expect(result[1].details).toBe('second');
+  });
+
+  it('assigns generated id when id is missing', () => {
+    const entries = [{ type: 'reasoning_start', message: '', timestamp: '' }] as StoryEntry[];
+    const result = ensureUniqueStoryIds(entries);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toMatch(/^story-\d+$/);
+  });
+
+  it('assigns generated id when id is empty string', () => {
+    const entries = [{ id: '', type: 'step', message: 'x', timestamp: '' }] as StoryEntry[];
+    const result = ensureUniqueStoryIds(entries);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toMatch(/^story-\d+$/);
+  });
+
+  it('dedupes entries with same id and same content', () => {
+    const entries: StoryEntry[] = [
+      { id: 'r1', type: 'reasoning_start', message: 'Thinking', timestamp: '', details: 'Same block' },
+      { id: 'r1', type: 'reasoning_start', message: 'Thinking', timestamp: '', details: 'Same block' },
+    ];
+    const result = ensureUniqueStoryIds(entries);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('r1');
+    expect(result[0].details).toBe('Same block');
+  });
+});
+
+describe('buildFullStoryItems', () => {
+  it('keeps all reasoning blocks when they have duplicate ids and different content', () => {
+    const sessionActivity = [
+      {
+        id: 'act-1',
+        created_at: new Date().toISOString(),
+        story: [
+          { id: 'e1', type: 'stream_start', message: 'Started', timestamp: '' },
+          { id: 'r1', type: 'reasoning_start', message: 'Thinking', timestamp: '', details: 'Block one' },
+          { id: 'r1', type: 'reasoning_start', message: 'Thinking', timestamp: '', details: 'Block two' },
+        ],
+      },
+    ];
+    const result = buildFullStoryItems(sessionActivity, [], []);
+    expect(result).toHaveLength(3);
+    expect(result[0].id).toBe('e1');
+    expect(result[1].id).toBe('r1');
+    expect(result[2].id).toBe('r1-1');
+    expect(result[1].details).toBe('Block one');
+    expect(result[2].details).toBe('Block two');
+  });
+
+  it('dedupes same entry when present in both session and storyItems', () => {
+    const block = { id: 'r1', type: 'reasoning_start', message: 'Thinking', timestamp: '', details: 'Same block' };
+    const sessionActivity = [{ id: 'act-1', created_at: new Date().toISOString(), story: [block] }];
+    const storyItems = [{ ...block }];
+    const result = buildFullStoryItems(sessionActivity, [], storyItems);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('r1');
+    expect(result[0].details).toBe('Same block');
   });
 });

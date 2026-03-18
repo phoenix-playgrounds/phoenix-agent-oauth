@@ -106,6 +106,33 @@ export function toTimestampMs(ts: string | Date | undefined, fallback: string): 
 
 export type SessionActivityEntryLike = { id: string; created_at: string; story?: StoryEntry[] };
 
+const STORY_ID_PREFIX = 'story';
+
+function contentSignature(e: { type?: string; message?: string; details?: string; command?: string; path?: string }): string {
+  return `${e.type ?? ''}|${e.message ?? ''}|${e.details ?? ''}|${e.command ?? ''}|${e.path ?? ''}`;
+}
+
+export function ensureUniqueStoryIds<T extends { id?: string }>(entries: T[]): T[] {
+  const byId = new Map<string, { signature: string; nextSuffix: number }>();
+  const result: T[] = [];
+  for (let i = 0; i < entries.length; i++) {
+    const e = entries[i]!;
+    const id = e.id?.trim() || `${STORY_ID_PREFIX}-${i}`;
+    const signature = contentSignature(e);
+    const state = byId.get(id);
+    if (state) {
+      if (state.signature === signature) continue;
+      const finalId = `${id}-${state.nextSuffix}`;
+      state.nextSuffix += 1;
+      result.push({ ...e, id: finalId });
+    } else {
+      byId.set(id, { signature, nextSuffix: 1 });
+      result.push({ ...e, id });
+    }
+  }
+  return result;
+}
+
 export function buildFullStoryItems(
   sessionActivity: SessionActivityEntryLike[],
   pastActivityFromMessages: SessionActivityEntryLike[],
@@ -114,12 +141,7 @@ export function buildFullStoryItems(
   const fromSession = sessionActivity.flatMap((a) => (a.story ?? []).map((s) => ({ ...s })));
   const fromPast = pastActivityFromMessages.flatMap((a) => (a.story ?? []).map((s) => ({ ...s })));
   const combined = filterVisibleStoryItems([...fromPast, ...fromSession, ...storyItems]);
-  const seen = new Set<string>();
-  return combined.filter((e) => {
-    if (!e?.id || seen.has(e.id)) return false;
-    seen.add(e.id);
-    return true;
-  });
+  return ensureUniqueStoryIds(combined);
 }
 
 export function computeSessionStats(

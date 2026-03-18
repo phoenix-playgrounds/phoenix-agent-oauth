@@ -12,6 +12,7 @@ import { formatRelativeTime } from './format-relative-time';
 import type { ThinkingStep } from './chat/thinking-types';
 import { TypingText } from './chat/typing-text';
 import {
+  ensureUniqueStoryIds,
   filterVisibleStoryItems,
   formatCompactInteger,
   getActivityIcon,
@@ -501,12 +502,7 @@ export function AgentThinkingSidebar({
       }))
     );
     const combined = filterVisibleStoryItems([...fromPast, ...fromSession, ...storyItems]) as StoryEntryWithActivityId[];
-    const seen = new Set<string>();
-    return combined.filter((e) => {
-      if (!e?.id || seen.has(e.id)) return false;
-      seen.add(e.id);
-      return true;
-    });
+    return ensureUniqueStoryIds(combined);
   }, [sessionActivity, pastActivityFromMessages, storyItems]);
 
   const sessionStats = useMemo(() => {
