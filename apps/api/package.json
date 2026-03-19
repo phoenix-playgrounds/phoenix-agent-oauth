@@ -79,8 +79,7 @@
       "test": {
         "executor": "nx:run-commands",
         "options": {
-          "command": "bun test --preload ./test-setup.ts",
-          "cwd": "apps/api"
+          "command": "bun test --preload ./apps/api/test-setup.ts"
         },
         "dependsOn": []
       },
