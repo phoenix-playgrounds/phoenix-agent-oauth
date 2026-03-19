@@ -11,7 +11,7 @@ export const MAX_PENDING_TOTAL = MAX_PENDING_IMAGES + MAX_PENDING_ATTACHMENTS;
  * HTML (still readable via innerText). Returns null for image-only clipboards so image paste can run.
  */
 export function getClipboardTextForContentEditablePaste(
-  data: React.ClipboardEvent['clipboardData']
+  data: DataTransfer | null
 ): string | null {
   if (!data) return null;
   const plain = data.getData('text/plain');
@@ -29,9 +29,7 @@ export function getClipboardTextForContentEditablePaste(
   }
 }
 
-export function hasNonEmptyPlainTextOnClipboard(
-  data: React.ClipboardEvent['clipboardData']
-): boolean {
+export function hasNonEmptyPlainTextOnClipboard(data: DataTransfer | null): boolean {
   return getClipboardTextForContentEditablePaste(data) !== null;
 }
 
