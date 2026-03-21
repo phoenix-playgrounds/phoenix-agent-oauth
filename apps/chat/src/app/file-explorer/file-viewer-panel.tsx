@@ -65,7 +65,7 @@ export function FileViewerPanel({
       });
 
     return () => ac.abort();
-  }, [entry.path]);
+  }, [entry.path, apiBasePath]);
 
   const language = getPrismLanguage(entry.name);
   const languageClass = language === 'plain' ? '' : `language-${language}`;

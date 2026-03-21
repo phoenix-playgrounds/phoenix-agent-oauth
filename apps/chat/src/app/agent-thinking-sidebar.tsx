@@ -16,7 +16,6 @@ import { TypingText } from './chat/typing-text';
 import {
   ensureUniqueStoryIds,
   filterVisibleStoryItems,
-  formatCompactInteger,
   getActivityIcon,
   getActivityLabel,
   getBlockVariant,
@@ -563,7 +562,7 @@ export function AgentThinkingSidebar({
       fromStreamEnd > 0 && Date.now() - fromStreamEnd < BRAIN_COMPLETE_TO_IDLE_MS;
     if (fromStory || fromStreamEndRecent) return { brain: BRAIN_COMPLETE, accent: BRAIN_COMPLETE_ACCENT };
     return { brain: BRAIN_IDLE, accent: BRAIN_IDLE_ACCENT };
-  }, [isStreaming, fullStoryItems.length, lastStoryTimestampMs, transitionToIdleTrigger]);
+  }, [isStreaming, fullStoryItems.length, lastStoryTimestampMs]);
 
   const filteredStoryItems = useMemo(() => {
     let forDisplay =

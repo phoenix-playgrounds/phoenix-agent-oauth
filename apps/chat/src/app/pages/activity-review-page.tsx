@@ -36,7 +36,6 @@ export function ActivityReviewPage() {
     selectedStory,
     selectedIndexSafe,
     typeFilter,
-    setTypeFilter,
     activitySearchQuery,
     setActivitySearchQuery,
     detailSearchQuery,
@@ -167,9 +166,9 @@ export function ActivityReviewPage() {
         open={settingsOpen}
         onClose={closeSettings}
         state={CHAT_STATES.AUTHENTICATED}
-        onStartAuth={() => {}}
-        onReauthenticate={() => {}}
-        onLogout={() => {}}
+        onStartAuth={() => undefined}
+        onReauthenticate={() => undefined}
+        onLogout={() => undefined}
       />
     </div>
   );

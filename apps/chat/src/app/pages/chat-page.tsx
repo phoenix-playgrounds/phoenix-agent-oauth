@@ -47,7 +47,7 @@ export function ChatPage() {
 
   const { entries: playgroundEntries, tree: playgroundTree, loading: playgroundLoading, stats: playgroundStats, refetch: refetchPlaygrounds } =
     usePlaygroundFiles();
-  const { tree: agentFileTree, hasFiles: hasAgentFiles, stats: agentStats, refetch: refetchAgentFiles } =
+  const { tree: agentFileTree, hasFiles: hasAgentFiles, stats: agentStats } =
     useAgentFiles();
   const hasPlaygroundFiles = playgroundEntries.length > 0;
   const hasAnyFiles = hasPlaygroundFiles || hasAgentFiles;

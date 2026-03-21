@@ -90,9 +90,6 @@ export function FileExplorer({
     : agentTree.length > 0 && playgroundTree.length === 0 ? 'agent'
     : 'playground';
   const tree = effectiveTab === 'agent' ? agentTree : playgroundTree;
-  const effectiveFileApiPath = effectiveTab === 'agent' && agentFileApiPath
-    ? agentFileApiPath
-    : undefined;
 
   const selectedFile = selectedPathProp !== undefined
     ? (tree.length > 0 ? findEntryByPath(tree, selectedPathProp ?? '') : null)
