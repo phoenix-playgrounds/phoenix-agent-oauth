@@ -166,6 +166,26 @@ export function FileExplorer({
     if (diff.size === 0) return;
     setAnimatingPaths(diff);
     setAnimatingPrev(prev);
+
+    setExpanded((currentExpanded) => {
+      let changed = false;
+      const nextExpanded = new Set(currentExpanded);
+      for (const [p, type] of diff.entries()) {
+        if (type === 'added' || type === 'renamed' || type === 'modified') {
+          const parts = p.split('/');
+          let currentPath = '';
+          for (let i = 0; i < parts.length - 1; i++) {
+            currentPath = currentPath ? `${currentPath}/${parts[i]}` : parts[i];
+            if (!nextExpanded.has(currentPath)) {
+              nextExpanded.add(currentPath);
+              changed = true;
+            }
+          }
+        }
+      }
+      return changed ? nextExpanded : currentExpanded;
+    });
+
     const timer = setTimeout(() => {
       setAnimatingPaths(new Map());
       setAnimatingPrev(null);
