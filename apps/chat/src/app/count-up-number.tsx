@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
 const ANIMATION_DURATION_MS = 400;
-const FRAME_INTERVAL_MS = 16;
 
 function formatCompact(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;

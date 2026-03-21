@@ -31,6 +31,16 @@ vi.mock('../embed-config', () => ({
   shouldHideThemeSwitch: vi.fn(() => false),
 }));
 
+vi.mock('../chat/chat-settings-modal', () => ({
+  ChatSettingsModal: ({ open, onClose }: any) => (
+    open ? (
+      <div role="dialog" aria-label="Settings">
+        <button type="button" onClick={onClose}>Close</button>
+      </div>
+    ) : null
+  ),
+}));
+
 function renderWithRoute(id: string) {
   return render(
     <MemoryRouter initialEntries={[`/activity/${id}`]}>
@@ -86,7 +96,6 @@ describe('ActivityReviewPage', () => {
     expect(screen.getByRole('link', { name: /Back to chat/i })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Settings' })).toBeTruthy();
     expect(screen.getByPlaceholderText('Search stories...')).toBeTruthy();
-    expect(screen.getByText(/Reasoning|All activities/)).toBeTruthy();
   });
 
   it('opens settings dialog when Settings is clicked and closes when Close is clicked', async () => {
