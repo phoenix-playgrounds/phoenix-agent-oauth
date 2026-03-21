@@ -79,6 +79,11 @@ export class OrchestratorService implements OnModuleInit {
         }
       }
     }
+
+    // Subscribe to queue count variations from steering service
+    this.steering.count$.subscribe((count) => {
+      this._send(WS_EVENT.QUEUE_UPDATED, { count });
+    });
   }
 
   get outbound(): Subject<OutboundEvent> {
@@ -147,7 +152,7 @@ export class OrchestratorService implements OnModuleInit {
         break;
       case WS_ACTION.SEND_CHAT_MESSAGE:
         if (this.isProcessing) {
-          this.handleQueueMessage(msg.text ?? '');
+          await this.handleQueueMessage(msg.text ?? '');
         } else {
           await this.handleChatMessage(
             msg.text ?? '',
@@ -159,7 +164,7 @@ export class OrchestratorService implements OnModuleInit {
         }
         break;
       case WS_ACTION.QUEUE_MESSAGE:
-        this.handleQueueMessage(msg.text ?? '');
+        await this.handleQueueMessage(msg.text ?? '');
         break;
       case WS_ACTION.SUBMIT_STORY:
         this.handleSubmitStory(msg.story ?? []);
@@ -188,6 +193,7 @@ export class OrchestratorService implements OnModuleInit {
     this._send(WS_EVENT.ACTIVITY_SNAPSHOT, {
       activity: this.activityStore.all(),
     });
+    this._send(WS_EVENT.QUEUE_UPDATED, { count: this.steering.count });
   }
 
   private async checkAndSendAuthStatus(): Promise<void> {
@@ -259,8 +265,8 @@ export class OrchestratorService implements OnModuleInit {
       return { accepted: false, error: ERROR_CODE.AGENT_BUSY };
     }
     this.isProcessing = true;
-    this.steering.resetQueue();
-    this._send(WS_EVENT.QUEUE_UPDATED, { count: 0 });
+    await this.steering.resetQueue();
+    // count$ handles QUEUE_UPDATED organically but this helps the API send immediately
     const { messageId, text: _text, imageUrls: urls, audioFilename: af, attachmentFilenames: att } =
       await this.addUserMessageAndEmit(text, images, undefined, undefined, attachmentFilenames);
     void this.runAgentResponse(_text, urls, af, att).catch((err) =>
@@ -423,8 +429,8 @@ export class OrchestratorService implements OnModuleInit {
       return;
     }
     this.isProcessing = true;
-    this.steering.resetQueue();
-    this._send(WS_EVENT.QUEUE_UPDATED, { count: 0 });
+    await this.steering.resetQueue();
+    // the count$ stream will emit QUEUE_UPDATED automatically, but doing it here ensures immediate UI feedback
     const { text: _t, imageUrls, audioFilename, attachmentFilenames: att } =
       await this.addUserMessageAndEmit(
         text,
@@ -436,12 +442,11 @@ export class OrchestratorService implements OnModuleInit {
     await this.runAgentResponse(_t, imageUrls, audioFilename, att);
   }
 
-  private handleQueueMessage(text: string): void {
+  private async handleQueueMessage(text: string): Promise<void> {
     if (!text.trim()) return;
-    this.steering.enqueue(text);
+    await this.steering.enqueue(text);
     const userMessage = this.messageStore.add('user', text);
     this._send(WS_EVENT.MESSAGE, userMessage as unknown as Record<string, unknown>);
-    this._send(WS_EVENT.QUEUE_UPDATED, { count: this.steering.count });
     void this.phoenixSync.syncMessages(JSON.stringify(this.messageStore.all()));
   }
 

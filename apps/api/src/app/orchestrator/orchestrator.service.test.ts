@@ -77,16 +77,18 @@ describe('OrchestratorService', () => {
     return orch;
   }
 
-  test('handleClientConnected sends auth_status and activity_snapshot', async () => {
+  test('handleClientConnected sends auth_status, activity_snapshot, and queue_updated', async () => {
     const orch = await createOrchestrator();
     const events: Array<{ type: string; data: Record<string, unknown> }> = [];
     orch.outbound.subscribe((ev) => events.push(ev));
     orch.handleClientConnected();
-    expect(events.length).toBe(2);
+    expect(events.length).toBe(3);
     expect(events[0].type).toBe(WS_EVENT.AUTH_STATUS);
     expect(events[0].data.status).toBe(AUTH_STATUS.UNAUTHENTICATED);
     expect(events[1].type).toBe(WS_EVENT.ACTIVITY_SNAPSHOT);
     expect(events[1].data.activity).toBeDefined();
+    expect(events[2].type).toBe(WS_EVENT.QUEUE_UPDATED);
+    expect(events[2].data.count).toBeDefined();
   });
 
   test('handleClientMessage get_model sends model_updated', async () => {
@@ -237,9 +239,15 @@ describe('OrchestratorService', () => {
   test('queue resets when a new streaming session starts', async () => {
     const orch = await createOrchestrator();
     orch.isAuthenticated = true;
+    
+    // Enqueue a message to ensure count > 0 before starting a session
+    await orch.handleClientMessage({ action: WS_ACTION.QUEUE_MESSAGE, text: 'go' });
+    
     const events: Array<{ type: string; data: Record<string, unknown> }> = [];
     orch.outbound.subscribe((ev) => events.push(ev));
+    
     await orch.handleClientMessage({ action: WS_ACTION.SEND_CHAT_MESSAGE, text: 'go' });
+    
     // At stream start, queue_updated with count 0 should be emitted
     const queueResetEvent = events.find((e) => e.type === WS_EVENT.QUEUE_UPDATED && e.data.count === 0);
     expect(queueResetEvent).toBeDefined();

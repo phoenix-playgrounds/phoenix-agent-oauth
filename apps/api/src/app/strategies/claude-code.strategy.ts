@@ -279,7 +279,7 @@ export class ClaudeCodeStrategy implements AgentStrategy {
         '-p',
         prompt,
         '--dangerously-skip-permissions',
-        ...(systemPrompt ? ['--system-prompt', systemPrompt] : []),
+        ...(systemPrompt ? ['--system-prompt', systemPrompt.trim()] : []),
         ...(useStreamJson
           ? [
               '--output-format',
