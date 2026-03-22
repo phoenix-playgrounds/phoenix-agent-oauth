@@ -7,6 +7,10 @@ import { getCopyableActivityText } from './activity-review-utils';
 import { usePersistedTypeFilter } from './use-persisted-type-filter';
 
 const ACTIVITY_POLL_INTERVAL_MS = 4000;
+// How long to hold 'complete' (emerald) state before going back to idle — same as chat sidebar
+const BRAIN_COMPLETE_TO_IDLE_MS = 7_000;
+// If the most-recent story entry is older than this, treat the run as finished
+const WORKING_RECENCY_MS = 90_000; // 90 seconds
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function isActivityId(id: string): boolean {
@@ -72,8 +76,91 @@ export function useActivityReviewData(params: UseActivityReviewDataParams) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
   const prevFilteredLengthRef = useRef(0);
+  // Brain state machine: idle | working | complete
+  const [brainState, setBrainState] = useState<'idle' | 'working' | 'complete'>('idle');
+  const brainStateRef = useRef<'idle' | 'working' | 'complete'>('idle');
+  const completedAtRef = useRef<number>(0);
+  const prevLatestStoryLenRef = useRef<number>(0);
+
+  // Keep ref in sync so effects can read current brainState without it as a dependency
+  useEffect(() => {
+    brainStateRef.current = brainState;
+  }, [brainState]);
 
   const activityStories = useMemo(() => flattenAllStories(activities), [activities]);
+
+  // Extract the latest reasoning/response text from the most recent activity for the detail panel
+  const liveResponseText = useMemo(() => {
+    if (activities.length === 0) return '';
+    const latest = activities[activities.length - 1];
+    if (!Array.isArray(latest?.story) || latest.story.length === 0) return '';
+    // Walk backwards to find the most recent reasoning_start with details
+    for (let i = latest.story.length - 1; i >= 0; i--) {
+      const s = latest.story[i];
+      if (s?.type === 'reasoning_start' && s.details?.trim() && s.details.trim() !== '{}') {
+        return s.details.trim();
+      }
+    }
+    return '';
+  }, [activities]);
+
+  // Derive brain state from polling data
+  useEffect(() => {
+    const latest = activities[activities.length - 1];
+    const story = Array.isArray(latest?.story) ? latest.story : [];
+
+    if (story.length === 0) {
+      prevLatestStoryLenRef.current = 0;
+      setBrainState('idle');
+      return;
+    }
+
+    const prevLen = prevLatestStoryLenRef.current;
+    const currentLen = story.length;
+    prevLatestStoryLenRef.current = currentLen;
+
+    const lastEntry = story[story.length - 1];
+    const lastTs = lastEntry?.timestamp ? new Date(lastEntry.timestamp).getTime() : 0;
+    const isRecent = lastTs > 0 && Date.now() - lastTs < WORKING_RECENCY_MS;
+
+    if (!isRecent) {
+      setBrainState('idle');
+      return;
+    }
+
+    // New entries just arrived → still working
+    if (currentLen > prevLen && prevLen > 0) {
+      setBrainState('working');
+      completedAtRef.current = 0;
+      return;
+    }
+
+    const prev = brainStateRef.current;
+
+    if (prev === 'working') {
+      // Growth stopped while working → transition to complete
+      completedAtRef.current = Date.now();
+      setBrainState('complete');
+    } else if (prev === 'idle' && prevLen === 0) {
+      // First load of a recent activity → briefly show complete
+      completedAtRef.current = Date.now();
+      setBrainState('complete');
+    }
+    // prev === 'complete' handled by the timeout below
+  }, [activities]);
+
+  // Timer: transition 'complete' → 'idle' after BRAIN_COMPLETE_TO_IDLE_MS
+  useEffect(() => {
+    if (brainState !== 'complete') return;
+    const elapsed = Date.now() - completedAtRef.current;
+    const remaining = Math.max(0, BRAIN_COMPLETE_TO_IDLE_MS - elapsed);
+    if (remaining === 0) {
+      setBrainState('idle');
+      return;
+    }
+    const t = setTimeout(() => setBrainState('idle'), remaining);
+    return () => clearTimeout(t);
+  }, [brainState]);
 
   const filteredStories = useMemo(() => {
     let list = activityStories;
@@ -242,5 +329,7 @@ export function useActivityReviewData(params: UseActivityReviewDataParams) {
     closeSettings,
     isFollowing,
     setIsFollowing,
+    liveResponseText,
+    brainState,
   };
 }
