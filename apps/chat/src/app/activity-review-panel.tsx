@@ -1,6 +1,6 @@
 import { Brain, ChevronDown, ChevronRight, Loader2, Search, Sparkles, Terminal, X } from 'lucide-react';
 import { createPortal } from 'react-dom';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CountUpNumber } from './count-up-number';
 import {
   getActivityIcon,
@@ -303,6 +303,7 @@ export interface ActivityStoryListProps {
   selectedIndex: number;
   onSelectStory: (index: number) => void;
   emptyMessage: string;
+  isFollowing?: boolean;
 }
 
 export function ActivityStoryList({
@@ -310,8 +311,17 @@ export function ActivityStoryList({
   selectedIndex,
   onSelectStory,
   emptyMessage,
+  isFollowing = false,
 }: ActivityStoryListProps) {
   const safeIndex = Math.min(selectedIndex, Math.max(0, stories.length - 1));
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll list to top (newest item) when following and story count changes
+  useEffect(() => {
+    if (!isFollowing || stories.length === 0) return;
+    scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [isFollowing, stories.length]);
+
   if (stories.length === 0) {
     return (
       <p className="text-xs text-muted-foreground px-2 py-4">{emptyMessage}</p>
@@ -319,7 +329,7 @@ export function ActivityStoryList({
   }
   const displayList = buildActivityDisplayList(stories);
   return (
-    <div className="flex-1 overflow-y-auto p-2 flex flex-col gap-0.5 min-h-0">
+    <div ref={scrollRef} className="flex-1 overflow-y-auto p-2 flex flex-col gap-0.5 min-h-0">
       {displayList.map((item) => {
         if (item.kind === 'command_group') {
           const isAnySelected = item.entries.some((e) => e.originalIndex === safeIndex);
@@ -357,6 +367,7 @@ export interface ActivityStoryDetailPanelProps {
   brainState?: 'idle' | 'working' | 'complete';
   totalStories?: number;
   completedStories?: number;
+  isFollowing?: boolean;
 }
 
 export function ActivityStoryDetailPanel({
@@ -371,12 +382,20 @@ export function ActivityStoryDetailPanel({
   brainState = 'idle',
   totalStories = 0,
   completedStories = 0,
+  isFollowing = false,
 }: ActivityStoryDetailPanelProps) {
   const isWorking = brainState === 'working';
   const isComplete = brainState === 'complete';
   const brainColor = isWorking ? 'text-blue-400' : isComplete ? 'text-emerald-400' : 'text-violet-400';
   const accentColor = isWorking ? 'text-blue-300' : isComplete ? 'text-emerald-300' : 'text-violet-300';
   const statColor = isWorking ? 'text-blue-300' : isComplete ? 'text-emerald-400' : 'text-foreground';
+  const liveResponseRef = useRef<HTMLDivElement>(null);
+
+  // When following, scroll latest-response block into view whenever the text updates
+  useEffect(() => {
+    if (!isFollowing || !liveResponseText) return;
+    liveResponseRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [isFollowing, liveResponseText]);
   return (
     <main
       className="flex-1 min-w-0 overflow-y-auto flex flex-col bg-transparent"
@@ -500,7 +519,7 @@ export function ActivityStoryDetailPanel({
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4">
         {liveResponseText && (
-          <div className="mb-4 rounded-lg border border-violet-500/40 bg-violet-500/10 px-3 py-2.5 flex flex-col gap-1.5 shadow-sm shadow-violet-500/10">
+          <div ref={liveResponseRef} className="mb-4 rounded-lg border border-violet-500/40 bg-violet-500/10 px-3 py-2.5 flex flex-col gap-1.5 shadow-sm shadow-violet-500/10">
             <div className="flex items-center gap-2 shrink-0">
               <span className="relative flex size-2 shrink-0">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-400 opacity-75" />

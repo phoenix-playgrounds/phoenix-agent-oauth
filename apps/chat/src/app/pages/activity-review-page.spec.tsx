@@ -3,6 +3,10 @@ import { act, render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { ActivityReviewPage, type ActivityReviewData } from './activity-review-page';
 
+// jsdom does not implement scrollTo or scrollIntoView — stub them
+window.HTMLElement.prototype.scrollTo = vi.fn();
+window.HTMLElement.prototype.scrollIntoView = vi.fn();
+
 const mockActivity: ActivityReviewData = {
   id: 'test-activity-id',
   created_at: '2025-01-15T12:00:00Z',
