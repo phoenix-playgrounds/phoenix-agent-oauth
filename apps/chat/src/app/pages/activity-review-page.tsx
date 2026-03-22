@@ -143,7 +143,7 @@ export function ActivityReviewPage() {
             </div>
           </div>
 
-          {/* Follow Activity pill — own row with animated live dot */}
+          {/* Follow Activity pill */}
           <div className="px-3 py-2 flex items-center gap-2 border-b border-border/40 shrink-0">
             <button
               id="follow-activity-toggle"
@@ -152,35 +152,33 @@ export function ActivityReviewPage() {
               onClick={() => setIsFollowing((v) => !v)}
               className={`
                 flex items-center gap-2 px-2.5 py-1 rounded-full border text-[11px] font-medium
-                transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-violet-500/40
+                transition-all duration-200 focus:outline-none focus:ring-2
                 ${isFollowing
-                  ? 'bg-violet-500/15 border-violet-500/40 text-violet-300 shadow-sm shadow-violet-500/20'
-                  : 'bg-muted/40 border-border/50 text-muted-foreground hover:bg-violet-500/10 hover:text-violet-400 hover:border-violet-500/30'
+                  ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300 shadow-sm shadow-emerald-500/20 focus:ring-emerald-500/40'
+                  : 'bg-red-500/10 border-red-500/30 text-red-400/80 hover:bg-red-500/15 hover:text-red-300 hover:border-red-500/40 focus:ring-red-500/30'
                 }
               `}
             >
-              {/* Animated live dot */}
               <span className="relative flex size-2 shrink-0" aria-hidden>
                 {isFollowing ? (
                   <>
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full size-2 bg-violet-500" />
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full size-2 bg-emerald-500" />
                   </>
                 ) : (
-                  <span className="relative inline-flex rounded-full size-2 bg-muted-foreground/40" />
+                  <span className="relative inline-flex rounded-full size-2 bg-red-500/70" />
                 )}
               </span>
               Follow activity
+              {isFollowing && <span className="text-[10px] text-emerald-400/80 italic">Live</span>}
             </button>
-            {isFollowing && (
-              <span className="text-[10px] text-violet-400/80 italic select-none">Live</span>
-            )}
           </div>
 
           <ActivityStoryList
             stories={filteredStories}
             selectedIndex={selectedIndexSafe}
             onSelectStory={handleSelectStory}
+            isFollowing={isFollowing}
             emptyMessage={
               activityStories.length === 0
                 ? 'No stories yet.'
@@ -204,6 +202,7 @@ export function ActivityReviewPage() {
           brainState={brainState}
           totalStories={activityStories.length}
           completedStories={brainState === 'working' ? Math.max(0, activityStories.length - 1) : activityStories.length}
+          isFollowing={isFollowing}
         />
       </div>
       <ChatSettingsModal
