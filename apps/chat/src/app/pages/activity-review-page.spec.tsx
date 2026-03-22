@@ -173,7 +173,7 @@ describe('ActivityReviewPage', () => {
     expect(screen.getAllByText('Step one').length).toBeGreaterThanOrEqual(1);
   });
 
-  it('renders a checkbox for each story row in the list', async () => {
+  it('renders the follow activity toggle button', async () => {
     const { apiRequest } = await import('../api-url');
     (apiRequest as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       ok: true,
@@ -184,9 +184,17 @@ describe('ActivityReviewPage', () => {
     await waitFor(() => {
       expect(screen.queryByText('Loading activities…')).toBeNull();
     });
-    const checkboxes = screen.getAllByRole('checkbox');
-    expect(checkboxes.length).toBeGreaterThanOrEqual(1);
+    const followBtn = screen.getByRole('button', { name: /Follow activity/i });
+    expect(followBtn).toBeTruthy();
+    expect(followBtn.getAttribute('aria-pressed')).toBe('false');
+    // Toggle on
+    await act(async () => {
+      fireEvent.click(followBtn);
+    });
+    expect(followBtn.getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByText('Live')).toBeTruthy();
   });
+
 
   it('shows most recent story at the top of the list', async () => {
     const twoActivityData = [

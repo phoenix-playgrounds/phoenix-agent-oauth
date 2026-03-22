@@ -50,6 +50,8 @@ export function ActivityReviewPage() {
     closeSettings,
     isFollowing,
     setIsFollowing,
+    liveResponseText,
+    brainState,
   } = useActivityReviewData({
     activityId: routeActivityId,
     storyId: routeStoryId,
@@ -91,6 +93,7 @@ export function ActivityReviewPage() {
           className="flex flex-col flex-shrink-0 bg-gradient-to-br from-background via-background to-purple-950/5 border-r border-violet-500/20 transition-all duration-300 overflow-hidden"
           style={{ width: RIGHT_SIDEBAR_WIDTH_PX, minWidth: 0 }}
         >
+          {/* Header: nav + settings/theme + search */}
           <div
             className={`${SIDEBAR_HEADER} flex flex-col shrink-0 min-w-0`}
             style={{ minHeight: PANEL_HEADER_MIN_HEIGHT_PX }}
@@ -138,33 +141,42 @@ export function ActivityReviewPage() {
                 </button>
               ) : null}
             </div>
-            <label className="flex items-center gap-1.5 cursor-pointer select-none px-1 pb-1 group" htmlFor="follow-activity-toggle">
-              <span
-                id="follow-activity-toggle"
-                role="checkbox"
-                aria-checked={isFollowing}
-                tabIndex={0}
-                onClick={() => setIsFollowing((v) => !v)}
-                onKeyDown={(e) => (e.key === ' ' || e.key === 'Enter') && setIsFollowing((v) => !v)}
-                className={`relative inline-flex h-4 w-7 shrink-0 rounded-full border transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-violet-500/50 ${
-                  isFollowing
-                    ? 'bg-violet-500 border-violet-400'
-                    : 'bg-muted/60 border-border/50 group-hover:border-violet-500/40'
-                }`}
-              >
-                <span
-                  className={`absolute top-0.5 left-0.5 size-2.5 rounded-full bg-white shadow transition-transform ${
-                    isFollowing ? 'translate-x-3' : 'translate-x-0'
-                  }`}
-                />
-              </span>
-              <span className={`text-[11px] font-medium transition-colors ${
-                isFollowing ? 'text-violet-300' : 'text-muted-foreground group-hover:text-foreground'
-              }`}>
-                Follow activity
-              </span>
-            </label>
           </div>
+
+          {/* Follow Activity pill — own row with animated live dot */}
+          <div className="px-3 py-2 flex items-center gap-2 border-b border-border/40 shrink-0">
+            <button
+              id="follow-activity-toggle"
+              type="button"
+              aria-pressed={isFollowing}
+              onClick={() => setIsFollowing((v) => !v)}
+              className={`
+                flex items-center gap-2 px-2.5 py-1 rounded-full border text-[11px] font-medium
+                transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-violet-500/40
+                ${isFollowing
+                  ? 'bg-violet-500/15 border-violet-500/40 text-violet-300 shadow-sm shadow-violet-500/20'
+                  : 'bg-muted/40 border-border/50 text-muted-foreground hover:bg-violet-500/10 hover:text-violet-400 hover:border-violet-500/30'
+                }
+              `}
+            >
+              {/* Animated live dot */}
+              <span className="relative flex size-2 shrink-0" aria-hidden>
+                {isFollowing ? (
+                  <>
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full size-2 bg-violet-500" />
+                  </>
+                ) : (
+                  <span className="relative inline-flex rounded-full size-2 bg-muted-foreground/40" />
+                )}
+              </span>
+              Follow activity
+            </button>
+            {isFollowing && (
+              <span className="text-[10px] text-violet-400/80 italic select-none">Live</span>
+            )}
+          </div>
+
           <ActivityStoryList
             stories={filteredStories}
             selectedIndex={selectedIndexSafe}
@@ -188,6 +200,10 @@ export function ActivityReviewPage() {
           copyTooltipAnchor={copyTooltipAnchor}
           brainButtonRef={brainButtonRef}
           onCopyClick={() => void runCopyActivityWithAnimation()}
+          liveResponseText={liveResponseText}
+          brainState={brainState}
+          totalStories={activityStories.length}
+          completedStories={brainState === 'working' ? Math.max(0, activityStories.length - 1) : activityStories.length}
         />
       </div>
       <ChatSettingsModal

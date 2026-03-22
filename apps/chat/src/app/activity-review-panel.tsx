@@ -1,6 +1,7 @@
-import { Brain, ChevronDown, ChevronRight, Search, Sparkles, Terminal, X } from 'lucide-react';
+import { Brain, ChevronDown, ChevronRight, Loader2, Search, Sparkles, Terminal, X } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { useState } from 'react';
+import { CountUpNumber } from './count-up-number';
 import {
   getActivityIcon,
   getActivityLabel,
@@ -352,6 +353,10 @@ export interface ActivityStoryDetailPanelProps {
   copyTooltipAnchor: { centerX: number; bottom: number } | null;
   brainButtonRef: React.RefObject<HTMLDivElement | null>;
   onCopyClick: () => void;
+  liveResponseText?: string;
+  brainState?: 'idle' | 'working' | 'complete';
+  totalStories?: number;
+  completedStories?: number;
 }
 
 export function ActivityStoryDetailPanel({
@@ -362,7 +367,16 @@ export function ActivityStoryDetailPanel({
   copyTooltipAnchor,
   brainButtonRef,
   onCopyClick,
+  liveResponseText = '',
+  brainState = 'idle',
+  totalStories = 0,
+  completedStories = 0,
 }: ActivityStoryDetailPanelProps) {
+  const isWorking = brainState === 'working';
+  const isComplete = brainState === 'complete';
+  const brainColor = isWorking ? 'text-blue-400' : isComplete ? 'text-emerald-400' : 'text-violet-400';
+  const accentColor = isWorking ? 'text-blue-300' : isComplete ? 'text-emerald-300' : 'text-violet-300';
+  const statColor = isWorking ? 'text-blue-300' : isComplete ? 'text-emerald-400' : 'text-foreground';
   return (
     <main
       className="flex-1 min-w-0 overflow-y-auto flex flex-col bg-transparent"
@@ -401,11 +415,20 @@ export function ActivityStoryDetailPanel({
                 </span>
               ) : (
                 <>
-                  <Brain className="size-8 text-violet-400 transition-colors" />
-                  <Sparkles
-                    className="size-5 text-violet-300 absolute -top-0.5 -right-0.5 animate-pulse transition-colors"
-                    aria-hidden
-                  />
+                  <Brain className={`size-8 transition-colors ${brainColor}`} />
+                  {isWorking ? (
+                    <Loader2
+                      className={`size-5 ${accentColor} absolute -top-0.5 -right-0.5 animate-spin transition-colors`}
+                      aria-hidden
+                    />
+                  ) : (
+                    <Sparkles
+                      className={`size-5 ${accentColor} absolute -top-0.5 -right-0.5 ${
+                        isComplete ? '' : 'animate-pulse'
+                      } transition-colors`}
+                      aria-hidden
+                    />
+                  )}
                 </>
               )}
             </button>
@@ -426,11 +449,32 @@ export function ActivityStoryDetailPanel({
               </span>,
               document.body
             )}
-          <h1 className="font-semibold text-sm text-foreground truncate min-w-0 flex-1 pl-3">
-            {selectedStory
-              ? `${getActivityLabel(selectedStory.type)} · ${formatRelativeTime(selectedStory.timestamp)}`
-              : 'All activities'}
-          </h1>
+          <div className="flex flex-col min-w-0 flex-1 pl-3 gap-0.5">
+            <h1 className="font-semibold text-sm text-foreground truncate min-w-0">
+              {selectedStory
+                ? `${getActivityLabel(selectedStory.type)} · ${formatRelativeTime(selectedStory.timestamp)}`
+                : 'All activities'}
+            </h1>
+            {totalStories > 0 && (
+              <p className="text-xs font-medium tabular-nums leading-none flex items-center gap-0.5 flex-wrap">
+                <span className={`${statColor} transition-colors`}>
+                  <CountUpNumber value={totalStories} format="raw" />
+                </span>
+                <span className="text-muted-foreground/60 text-[10px]"> total</span>
+                <span className="text-muted-foreground/40 mx-0.5">·</span>
+                <span className="text-emerald-400 transition-colors">
+                  <CountUpNumber value={completedStories} format="raw" />
+                </span>
+                <span className="text-muted-foreground/60 text-[10px]"> done</span>
+                {isWorking && (
+                  <>
+                    <span className="text-muted-foreground/40 mx-0.5">·</span>
+                    <span className="text-cyan-400 text-[10px] animate-pulse">processing</span>
+                  </>
+                )}
+              </p>
+            )}
+          </div>
         </div>
         <div className={SEARCH_ROW_WRAPPER}>
           <Search className={SEARCH_ICON_POSITION} aria-hidden />
@@ -455,12 +499,30 @@ export function ActivityStoryDetailPanel({
         </div>
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4">
+        {liveResponseText && (
+          <div className="mb-4 rounded-lg border border-violet-500/40 bg-violet-500/10 px-3 py-2.5 flex flex-col gap-1.5 shadow-sm shadow-violet-500/10">
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="relative flex size-2 shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-400 opacity-75" />
+                <span className="relative inline-flex rounded-full size-2 bg-violet-500" />
+              </span>
+              <p className="text-[10px] font-semibold text-violet-300 uppercase tracking-wide">
+                Latest Response
+              </p>
+            </div>
+            <div className="max-h-[40vh] overflow-y-auto">
+              <p className={`text-[11px] ${ACTIVITY_MONO} whitespace-pre-wrap`}>
+                {reasoningBodyWithHighlights(liveResponseText, detailSearchQuery)}
+              </p>
+            </div>
+          </div>
+        )}
         {selectedStory ? (
           <div className="w-full min-w-0">
             <StoryDetail story={selectedStory} highlightQuery={detailSearchQuery} />
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">Select a story from the list.</p>
+          !liveResponseText && <p className="text-sm text-muted-foreground">Select a story from the list.</p>
         )}
       </div>
     </main>
