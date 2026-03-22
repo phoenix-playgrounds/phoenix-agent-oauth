@@ -257,6 +257,13 @@ export function ChatPage() {
         ...(pendingAttachments.length ? { attachmentFilenames: pendingAttachments.map((a) => a.filename) } : {}),
       });
     }
+
+    try {
+      window.parent.postMessage({ type: 'player_message_sent' }, '*');
+    } catch (_) {
+      // ignore across cross-origin if parent is unavailable
+    }
+
     if (text) {
       setMessages((prev) => [
         ...prev,
