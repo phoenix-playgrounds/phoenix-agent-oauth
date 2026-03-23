@@ -11,8 +11,8 @@
     "test:integration": "echo 'No integration tests configured'",
     "typecheck": "nx run-many -t typecheck",
     "e2e": "nx run-many -t e2e",
-    "ci": "nx run-many -t lint,build,typecheck,test --parallel=8",
-    "ci:notest": "nx run-many -t lint,build,typecheck --parallel=8"
+    "ci": "nx run-many -t lint,build,typecheck,test",
+    "ci:notest": "nx run-many -t lint,build,typecheck"
   },
   "private": true,
   "dependencies": {
