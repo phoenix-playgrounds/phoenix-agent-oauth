@@ -43,7 +43,7 @@ services:
       - bun-cache:/root/.bun/install/cache
       - nx-cache:/app/.nx/cache
     labels:
-      fibe.gg/repo_url: "${REPO_URL:-https://github.com/fibegg/fibe-agent}"
+      fibe.gg/repo_url: "https://github.com/fibegg/fibe-agent"
       fibe.gg/branch: "${BRANCH:-main}"
       fibe.gg/source_mount: "/app"
       fibe.gg/job_watch: "true"
@@ -67,8 +67,10 @@ configs:
     content: |
       set -e
       echo "--> Installing OS dependencies"
-      apt-get update && apt-get install -y --no-install-recommends git curl jq python3 make g++ ca-certificates nodejs npm
+      apt-get update && apt-get install -y --no-install-recommends git curl jq python3 make g++ ca-certificates nodejs npm node-gyp
       npm install -g node-gyp
+      export PATH="$$PATH:$$(npm bin -g)"
+      ln -sf $$(npm bin -g)/node-gyp /usr/local/bin/node-gyp || true
       
       echo "--> Installing Docker CLI"
       ARCH=$$(uname -m)
