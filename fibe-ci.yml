@@ -36,7 +36,7 @@ x-fibe.gg:
 
 services:
   ci-runner:
-    image: oven/bun:1.3.11-alpine
+    image: oven/bun:1.3.11-slim
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       # - ./:/app
@@ -67,8 +67,17 @@ configs:
     content: |
       set -e
       echo "--> Installing OS dependencies"
-      apk add --no-cache docker-cli git curl jq
+      apt-get update && apt-get install -y --no-install-recommends git curl jq python3 make g++ ca-certificates nodejs npm
       
+      echo "--> Installing Docker CLI"
+      ARCH=$$(uname -m)
+      if [ "$$ARCH" = "x86_64" ]; then DOCKER_ARCH="x86_64"; elif [ "$$ARCH" = "aarch64" ]; then DOCKER_ARCH="aarch64"; else DOCKER_ARCH="x86_64"; fi
+      curl -fsSL -o docker.tgz "https://download.docker.com/linux/static/stable/$${DOCKER_ARCH}/docker-27.4.1.tgz"
+      tar -xzf docker.tgz docker/docker
+      mv docker/docker /usr/local/bin/docker
+      chmod +x /usr/local/bin/docker
+      rm -rf docker docker.tgz
+
       echo "--> Installing Trivy scanner"
       curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
       
