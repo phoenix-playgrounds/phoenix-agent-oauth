@@ -255,6 +255,9 @@ export interface ChatMessage {
   queued?: boolean;
   usage?: { inputTokens: number; outputTokens: number };
   model?: string;
+  agentId?: string;
+  agentName?: string;
+  agentEmoji?: string;
 }
 
 function formatTime(iso: string): string {
@@ -265,6 +268,16 @@ function formatTime(iso: string): string {
   h = h % 12 || 12;
   const mins = m < 10 ? `0${m}` : `${m}`;
   return `${h}:${mins} ${ampm}`;
+}
+
+/** Generate a deterministic HSL accent colour from an agentId string. */
+function agentAccentColor(agentId: string): string {
+  let hash = 0;
+  for (let i = 0; i < agentId.length; i++) {
+    hash = (hash * 31 + agentId.charCodeAt(i)) >>> 0;
+  }
+  const hue = hash % 360;
+  return `hsl(${hue}, 65%, 55%)`;
 }
 
 function getUploadSrc(filename: string): string {
@@ -338,6 +351,14 @@ const MessageRow = memo(
               <User className="size-3.5 sm:size-4" />
             </div>
           )
+        ) : msg.agentEmoji ? (
+          <div
+            className={`${AVATAR_ASSISTANT} overflow-hidden`}
+            style={{ background: 'transparent', border: `2px solid ${agentAccentColor(msg.agentId ?? msg.agentName ?? '')}` }}
+            title={msg.agentName}
+          >
+            <span className="text-base leading-none" aria-hidden>{msg.agentEmoji}</span>
+          </div>
         ) : assistantAvatarUrl ? (
           <div className={`${AVATAR_ASSISTANT} overflow-hidden`}>
             <img src={assistantAvatarUrl} alt="" className="size-full object-cover" />
@@ -349,11 +370,22 @@ const MessageRow = memo(
         )}
       </div>
       <div className={`flex-1 min-w-0 ${msg.role === 'user' ? 'flex justify-end' : ''}`}>
+        {msg.agentName && msg.role === 'assistant' && (
+          <p
+            className="text-xs font-semibold mb-1 ml-1"
+            style={{ color: agentAccentColor(msg.agentId ?? msg.agentName) }}
+          >
+            {msg.agentName}
+          </p>
+        )}
         <div
           className={`${maxWidthClass} min-w-0 px-3 sm:px-4 py-2 sm:py-3 rounded-2xl ${
             msg.role === 'user' ? `rounded-tr-sm ${BUBBLE_USER}` : BUBBLE_ASSISTANT
           }`}
-          style={tightMaxWidth !== undefined ? { maxWidth: tightMaxWidth } : undefined}
+          style={{
+            ...(tightMaxWidth !== undefined ? { maxWidth: tightMaxWidth } : {}),
+            ...(msg.agentId ? { borderLeft: `3px solid ${agentAccentColor(msg.agentId)}` } : {}),
+          }}
         >
           {msg.role === 'user' ? (
             <>

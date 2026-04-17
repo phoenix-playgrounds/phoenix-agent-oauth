@@ -38,7 +38,10 @@ export interface ChatHeaderProps {
   terminalOpen?: boolean;
   tonyStarkMode?: boolean;
   onToggleTonyStarkMode?: () => void;
+  groupMode?: boolean;
+  onToggleGroupMode?: () => void;
   // Playground selector
+
   playgroundEntries?: BrowseEntry[];
   playgroundLoading?: boolean;
   playgroundError?: string | null;
@@ -168,8 +171,11 @@ export function ChatHeader({
   terminalOpen = false,
   tonyStarkMode = false,
   onToggleTonyStarkMode,
+  groupMode = false,
+  onToggleGroupMode,
   ...rest
 }: ChatHeaderProps) {
+
   // Collect all playground-related props so they can be forwarded via PlaygroundSelectorSlot.
   const playgroundProps: ChatHeaderProps = {
     isMobile,
@@ -200,8 +206,11 @@ export function ChatHeader({
     terminalOpen,
     tonyStarkMode,
     onToggleTonyStarkMode,
+    groupMode,
+    onToggleGroupMode,
     ...rest,
   };
+
 
   return (
     <header
@@ -320,6 +329,24 @@ export function ChatHeader({
             >
               <StarkGlassesIcon className="w-5 h-5 md:w-6 md:h-6 group-hover:drop-shadow-[0_0_8px_rgba(6,182,212,0.8)] transition-all" />
             </Link>
+          )}
+
+          {onToggleGroupMode && (
+            <button
+              type="button"
+              id="group-chat-toggle-btn"
+              onClick={onToggleGroupMode}
+              className={`inline-flex items-center gap-1 h-8 px-2.5 rounded-lg text-[10px] sm:text-xs font-medium border transition-colors shrink-0 ${
+                groupMode
+                  ? 'bg-violet-600/30 text-violet-200 border-violet-500/50 shadow-[0_0_8px_rgba(139,92,246,0.3)]'
+                  : 'text-muted-foreground border-border hover:border-violet-500/40 hover:text-violet-300 bg-[var(--input-background)]'
+              }`}
+              title={groupMode ? 'Exit group chat mode' : 'Enable group chat mode'}
+              aria-label={groupMode ? 'Exit group chat mode' : 'Enable group chat mode'}
+              aria-pressed={groupMode}
+            >
+              👥 Group
+            </button>
           )}
 
           <ModelSelector

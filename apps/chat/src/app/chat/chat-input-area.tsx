@@ -44,7 +44,10 @@ export interface ChatInputAreaProps {
   onVoiceToggle: () => void;
   maxPendingTotal: number;
   queuedCount?: number;
+  groupMode?: boolean;
+  groupAgentNames?: string[];
 }
+
 
 export function ChatInputArea({
   state,
@@ -75,7 +78,10 @@ export function ChatInputArea({
   onVoiceToggle,
   maxPendingTotal,
   queuedCount = 0,
+  groupMode = false,
+  groupAgentNames = [],
 }: ChatInputAreaProps) {
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isWorking = state === CHAT_STATES.AWAITING_RESPONSE;
   const isReady = state === CHAT_STATES.AUTHENTICATED;
@@ -87,6 +93,20 @@ export function ChatInputArea({
   return (
     <div className="shrink-0 p-3 sm:p-4 md:p-6 border-t border-border/30 bg-card/30 backdrop-blur-sm">
       <div className="flex flex-col gap-2">
+        {groupMode && groupAgentNames.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 px-1">
+            <span className="text-[10px] text-muted-foreground/70 mr-0.5">Group:</span>
+            {groupAgentNames.map((name) => (
+              <span
+                key={name}
+                className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-violet-500/10 border border-violet-500/20 text-violet-300"
+              >
+                {name}
+              </span>
+            ))}
+          </div>
+        )}
+
         {(pendingImages.length > 0 || pendingVoice || pendingAttachments.length > 0) && (
           <div className="flex flex-wrap gap-2 items-center">
             {pendingVoice && (

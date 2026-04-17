@@ -11,7 +11,9 @@ export const WS_ACTION = {
   GET_MODEL: 'get_model',
   SET_MODEL: 'set_model',
   INTERRUPT_AGENT: 'interrupt_agent',
+  SEND_GROUP_MESSAGE: 'send_group_message',
 } as const;
+
 
 export const WS_EVENT = {
   AUTH_STATUS: 'auth_status',
@@ -39,7 +41,13 @@ export const WS_EVENT = {
   PLAYGROUND_CHANGED: 'playground_changed',
   QUEUE_UPDATED: 'queue_updated',
   AGENT_MODE_UPDATED: 'agent_mode_updated',
+  GROUP_AGENTS_UPDATED: 'group_agents_updated',
+  GROUP_AGENT_STREAM_START: 'group_agent_stream_start',
+  GROUP_AGENT_STREAM_CHUNK: 'group_agent_stream_chunk',
+  GROUP_AGENT_STREAM_END: 'group_agent_stream_end',
+  GROUP_AGENT_MESSAGE: 'group_agent_message',
 } as const;
+
 
 export const AUTH_STATUS = {
   AUTHENTICATED: 'authenticated',

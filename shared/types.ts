@@ -19,3 +19,12 @@ export interface StoredActivityEntry {
   story: StoredStoryEntry[];
   usage?: TokenUsage;
 }
+
+export interface AgentConfig {
+  id: string;
+  name: string;
+  emoji: string;
+  systemPrompt: string;
+  model?: string;
+  enabled: boolean;
+}

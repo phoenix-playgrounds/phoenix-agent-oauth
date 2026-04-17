@@ -21,6 +21,8 @@ import { ContainerLoggerService, logRequest } from './container-logger';
 import { loadInjectedCredentials } from './credential-injector';
 import { runPostInitOnce } from './post-init-runner';
 import { TerminalService } from './app/terminal/terminal.service';
+import { GroupOrchestratorService } from './app/group-chat/group-orchestrator.service';
+
 
 // Must be called before any service reads process.env
 loadDevEnv();
@@ -107,7 +109,9 @@ async function bootstrap() {
   }
   const playgroundWatcher = app.get(PlaygroundWatcherService);
   const terminalService = app.get(TerminalService);
-  attachWebSocketServer(fastify, config, orchestrator, playgroundWatcher, terminalService);
+  const groupOrchestrator = app.get(GroupOrchestratorService);
+  attachWebSocketServer(fastify, config, orchestrator, playgroundWatcher, terminalService, groupOrchestrator);
+
   logger.log('WebSocket server listening on paths /ws and /ws-terminal');
 
   const postInitScript = config.getPostInitScript();

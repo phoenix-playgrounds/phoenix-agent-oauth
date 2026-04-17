@@ -88,6 +88,12 @@ export interface ServerMessage {
   entry?: StoredActivityEntry;
   count?: number;
   usage?: { inputTokens: number; outputTokens: number };
+  // Group chat fields
+  agentId?: string;
+  agentName?: string;
+  agentEmoji?: string;
+  agents?: unknown[];
+  error?: string;
 }
 
 

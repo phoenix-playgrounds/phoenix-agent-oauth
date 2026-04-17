@@ -8,8 +8,10 @@ import { ConfigService } from './app/config/config.service';
 import { OrchestratorService } from './app/orchestrator/orchestrator.service';
 import { PlaygroundWatcherService } from './app/playgrounds/playground-watcher.service';
 import { TerminalService } from './app/terminal/terminal.service';
-import { WS_CLOSE, WS_EVENT } from '@shared/ws-constants';
+import { GroupOrchestratorService } from './app/group-chat/group-orchestrator.service';
+import { WS_CLOSE, WS_ACTION, WS_EVENT } from '@shared/ws-constants';
 import { logWs } from './container-logger';
+
 
 type ClientMessage = {
   action: string;
@@ -20,7 +22,9 @@ type ClientMessage = {
   audio?: string;
   audioFilename?: string;
   attachmentFilenames?: string[];
+  story?: Array<{ id: string; type: string; message: string; timestamp: string; details?: string }>;
 };
+
 
 /** Extract the token query param from an IncomingMessage URL. */
 function extractToken(req: IncomingMessage): string | null {
@@ -43,8 +47,10 @@ function attachChatWs(
   wss: WebSocketServer,
   config: ConfigService,
   orchestrator: OrchestratorService,
+  groupOrchestrator: GroupOrchestratorService,
   playgroundWatcher: PlaygroundWatcherService,
 ): void {
+
   let activeClient: WebSocket | null = null;
 
   const sendToClient = (type: string, data: Record<string, unknown> = {}): void => {
@@ -80,10 +86,15 @@ function attachChatWs(
       try {
         const msg = JSON.parse(raw.toString()) as ClientMessage;
         logWs({ event: 'action', action: msg.action });
-        void orchestrator.handleClientMessage(msg);
+        if (msg.action === WS_ACTION.SEND_GROUP_MESSAGE) {
+          void groupOrchestrator.handleGroupMessage(msg.text ?? '', orchestrator.outbound);
+        } else {
+          void orchestrator.handleClientMessage(msg);
+        }
       } catch {
         // ignore invalid JSON
       }
+
     });
 
     ws.on('close', (code?: number) => {
@@ -180,7 +191,9 @@ export function attachWebSocketServer(
   orchestrator: OrchestratorService,
   playgroundWatcher: PlaygroundWatcherService,
   terminalService: TerminalService,
+  groupOrchestrator: GroupOrchestratorService,
 ): WebSocketServer {
+
   const server = (fastify as { server: import('http').Server }).server;
 
   const wss = new WebSocketServer({ noServer: true });
@@ -199,8 +212,9 @@ export function attachWebSocketServer(
     }
   });
 
-  attachChatWs(wss, config, orchestrator, playgroundWatcher);
+  attachChatWs(wss, config, orchestrator, groupOrchestrator, playgroundWatcher);
   attachTerminalWs(terminalWss, config, terminalService);
+
 
   return wss;
 }

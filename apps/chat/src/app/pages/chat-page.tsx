@@ -49,6 +49,10 @@ import { ChatInputArea } from '../chat/chat-input-area';
 import { DragDropOverlay } from '../chat/drag-drop-overlay';
 import { MODAL_OVERLAY_DARK, MOBILE_SHEET_PANEL } from '../ui-classes';
 import { useTerminalPanel } from '../terminal/use-terminal-panel';
+import { GroupAgentsPanel } from '../chat/group-agents-panel';
+import { buildApiUrl, getAuthTokenForRequest } from '../api-url';
+import type { AgentConfig } from '@shared/types';
+
 
 const LazyFileViewerPanel = lazy(() => import('../file-explorer/file-viewer-panel').then((m) => ({ default: m.FileViewerPanel })));
 const LazyTerminalPanel = lazy(() => import('../terminal/terminal-panel').then((m) => ({ default: m.TerminalPanel })));
@@ -103,6 +107,46 @@ export function ChatPage() {
       return next;
     });
   }, []);
+
+  const [groupMode, setGroupMode] = useState(() => localStorage.getItem('group-chat-mode') === 'true');
+  const [groupPanelOpen, setGroupPanelOpen] = useState(false);
+
+  const handleToggleGroupMode = useCallback(() => {
+    setGroupMode((prev) => {
+      const next = !prev;
+      localStorage.setItem('group-chat-mode', String(next));
+      if (next) setGroupPanelOpen(true);
+      return next;
+    });
+  }, []);
+
+  const agentApiCall = useCallback(async (path: string, method: string, body?: unknown) => {
+    const token = getAuthTokenForRequest();
+    const url = buildApiUrl(path);
+    const res = await fetch(url, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+    });
+    if (!res.ok) throw new Error(`API error: ${res.status}`);
+    return res.json();
+  }, []);
+
+  const handleAgentUpsert = useCallback((agent: Partial<AgentConfig> & { id?: string }) => {
+    agentApiCall('/api/group-chat/agents', 'POST', agent).catch(console.error);
+  }, [agentApiCall]);
+
+  const handleAgentRemove = useCallback((id: string) => {
+    agentApiCall(`/api/group-chat/agents/${id}`, 'DELETE').catch(console.error);
+  }, [agentApiCall]);
+
+  const handleAgentToggle = useCallback((id: string, enabled: boolean) => {
+    agentApiCall(`/api/group-chat/agents/${id}/enabled`, 'PATCH', { enabled }).catch(console.error);
+  }, [agentApiCall]);
+
 
   const leftResize = usePanelResize({
     initialWidth: SIDEBAR_WIDTH_PX,
@@ -241,6 +285,7 @@ export function ChatPage() {
     authModal,
     sessionActivity,
     queuedCount,
+    groupAgents,
     send,
     reconnect,
     startAuth,
@@ -256,8 +301,60 @@ export function ChatPage() {
     handleStreamStart,
     handleStreamEnd,
     thinkingCallbacks,
-    refetchPlaygrounds
+    refetchPlaygrounds,
+    {
+      onGroupAgentsUpdated: (agents) => {
+        void agents;
+      },
+      onGroupAgentStreamStart: (agentId, agentName, agentEmoji) => {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `group-streaming-${agentId}`,
+            role: 'assistant',
+            body: '',
+            created_at: new Date().toISOString(),
+            agentId,
+            agentName,
+            agentEmoji,
+            optimistic: true,
+          },
+        ]);
+      },
+      onGroupAgentStreamChunk: (agentId, text) => {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === `group-streaming-${agentId}`
+              ? { ...m, body: (m.body ?? '') + text }
+              : m
+          )
+        );
+      },
+      onGroupAgentStreamEnd: (_agentId) => {
+        // nothing extra needed; optimistic replaced by group_agent_message
+      },
+      onGroupAgentMessage: (msg) => {
+        const agentId = msg.agentId as string;
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === `group-streaming-${agentId}`
+              ? {
+                  id: msg.id as string | undefined,
+                  role: 'assistant',
+                  body: msg.body as string,
+                  created_at: msg.created_at as string,
+                  agentId: msg.agentId as string,
+                  agentName: msg.agentName as string,
+                  agentEmoji: msg.agentEmoji as string,
+                  model: msg.model as string | undefined,
+                }
+              : m
+          )
+        );
+      },
+    },
   );
+
 
   useEffect(() => {
     sendRef.current = send;
@@ -381,7 +478,20 @@ export function ChatPage() {
       // Queue mode — text only
       if (!currentInput) return;
       send({ action: 'queue_message', text: currentInput });
+    } else if (groupMode) {
+      send({ action: 'send_group_message', text: currentInput || '' });
+      if (currentInput) {
+        setMessages((prev) => [
+          ...prev,
+          { role: 'user', body: currentInput, created_at: new Date().toISOString(), optimistic: true },
+        ]);
+      }
+      setLastSentMessage(currentInput || null);
+      setInputState({ value: '', cursor: 0 });
+      scroll.markJustSent();
+      return;
     } else {
+
       send({
         action: 'send_chat_message',
         text: currentInput || '',
@@ -647,6 +757,8 @@ export function ChatPage() {
           onPlaygroundSmartMount={pgSelector.smartMount}
           tonyStarkMode={tonyStarkMode}
           onToggleTonyStarkMode={handleToggleTonyStarkMode}
+          groupMode={groupMode}
+          onToggleGroupMode={handleToggleGroupMode}
         />
         <ChatErrorBanner
           errorMessage={errorMessage}
@@ -742,6 +854,8 @@ export function ChatPage() {
           onVoiceToggle={handleVoiceToggle}
           maxPendingTotal={MAX_PENDING_TOTAL}
           queuedCount={queuedCount}
+          groupMode={groupMode}
+          groupAgentNames={groupAgents.filter((a) => a.enabled).map((a) => `${a.emoji} ${a.name}`)}
         />
         {terminalOpen && (
           <Suspense fallback={
@@ -757,6 +871,42 @@ export function ChatPage() {
               <LazyTerminalPanel onClose={closeTerminal} />
             </div>
           </Suspense>
+        )}
+
+        {/* Group Agents Panel — slide-in from the right */}
+        {groupPanelOpen && (
+          <>
+            <div
+              className={`${MODAL_OVERLAY_DARK}`}
+              aria-hidden
+              onClick={() => setGroupPanelOpen(false)}
+            />
+            <div
+              className="absolute right-0 top-0 bottom-0 z-30 w-80 bg-card border-l border-violet-500/20 shadow-2xl overflow-hidden flex flex-col"
+              role="dialog"
+              aria-label="Group agents"
+            >
+              <div className="flex items-center justify-between px-3 py-2 border-b border-white/10 shrink-0">
+                <span className="text-sm font-semibold text-foreground">Group Chat Agents</span>
+                <button
+                  type="button"
+                  onClick={() => setGroupPanelOpen(false)}
+                  className="p-1 rounded text-muted-foreground hover:text-foreground"
+                  aria-label="Close panel"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <GroupAgentsPanel
+                  agents={groupAgents}
+                  onUpsert={handleAgentUpsert}
+                  onRemove={handleAgentRemove}
+                  onToggle={handleAgentToggle}
+                />
+              </div>
+            </div>
+          </>
         )}
     </ChatLayout>
   );

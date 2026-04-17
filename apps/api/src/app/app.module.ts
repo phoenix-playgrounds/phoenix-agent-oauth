@@ -38,6 +38,10 @@ import { AgentFilesService } from './agent-files/agent-files.service';
 import { AgentFilesWatcherService } from './agent-files/agent-files-watcher.service';
 import { RuntimeConfigController } from './runtime-config/runtime-config.controller';
 import { TerminalService } from './terminal/terminal.service';
+import { AgentConfigStoreService } from './group-chat/agent-config-store.service';
+import { GroupOrchestratorService } from './group-chat/group-orchestrator.service';
+import { GroupChatController } from './group-chat/group-chat.controller';
+
 
 @Module({
   imports: [
@@ -61,7 +65,9 @@ import { TerminalService } from './terminal/terminal.service';
     AgentController,
     DataPrivacyController,
     RuntimeConfigController,
+    GroupChatController,
   ],
+
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
@@ -85,6 +91,9 @@ import { TerminalService } from './terminal/terminal.service';
     GithubTokenRefreshService,
     SteeringService,
     TerminalService,
+    AgentConfigStoreService,
+    GroupOrchestratorService,
   ],
+
 })
 export class AppModule {}

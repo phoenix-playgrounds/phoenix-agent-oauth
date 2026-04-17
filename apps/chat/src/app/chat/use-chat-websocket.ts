@@ -17,6 +17,8 @@ import {
 } from './chat-state';
 import type { ThinkingStep } from './thinking-types';
 import type { ToolOrFileEvent } from './thinking-types';
+import type { AgentConfig } from '@shared/types';
+
 
 import { useChatAuth, type AuthModalState } from './use-chat-auth';
 
@@ -27,6 +29,7 @@ export interface UseChatWebSocketResult {
   authModal: AuthModalState;
   sessionActivity: StoredActivityEntry[];
   queuedCount: number;
+  groupAgents: AgentConfig[];
   send: (msg: Record<string, unknown>) => void;
   reconnect: () => void;
   startAuth: () => void;
@@ -43,6 +46,7 @@ export interface UseChatWebSocketResult {
 
 
 
+
 export interface ThinkingCallbacks {
   onStreamStartData?: (data: { model?: string }) => void;
   onReasoningStart?: () => void;
@@ -52,20 +56,33 @@ export interface ThinkingCallbacks {
   onToolOrFile?: (event: ToolOrFileEvent) => void;
 }
 
+export interface GroupAgentCallbacks {
+  onGroupAgentsUpdated?: (agents: AgentConfig[]) => void;
+  onGroupAgentStreamStart?: (agentId: string, agentName: string, agentEmoji: string, model?: string) => void;
+  onGroupAgentStreamChunk?: (agentId: string, text: string) => void;
+  onGroupAgentStreamEnd?: (agentId: string, error?: string) => void;
+  onGroupAgentMessage?: (msg: Record<string, unknown>) => void;
+}
+
+
 export function useChatWebSocket(
   onMessage?: (data: ServerMessage) => void,
   onStreamChunk?: (text: string) => void,
   onStreamStart?: (data?: { model?: string }) => void,
   onStreamEnd?: (usage?: { inputTokens: number; outputTokens: number }, model?: string) => void,
   thinkingCallbacks?: ThinkingCallbacks,
-  onPlaygroundChanged?: () => void
+  onPlaygroundChanged?: () => void,
+  groupAgentCallbacks?: GroupAgentCallbacks,
 ): UseChatWebSocketResult {
+
   const navigate = useNavigate();
   const [state, setState] = useState<ChatState>(CHAT_STATES.INITIALIZING);
   const [agentMode, setAgentMode] = useState<string>('Exploring...');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [sessionActivity, setSessionActivity] = useState<StoredActivityEntry[]>([]);
   const [queuedCount, setQueuedCount] = useState(0);
+  const [groupAgents, setGroupAgents] = useState<AgentConfig[]>([]);
+
 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -76,12 +93,15 @@ export function useChatWebSocket(
   const onStreamEndRef = useRef(onStreamEnd);
   const thinkingRef = useRef(thinkingCallbacks);
   const onPlaygroundChangedRef = useRef(onPlaygroundChanged);
+  const groupAgentRef = useRef(groupAgentCallbacks);
   thinkingRef.current = thinkingCallbacks;
   onMessageRef.current = onMessage;
   onStreamChunkRef.current = onStreamChunk;
   onStreamStartRef.current = onStreamStart;
   onStreamEndRef.current = onStreamEnd;
   onPlaygroundChangedRef.current = onPlaygroundChanged;
+  groupAgentRef.current = groupAgentCallbacks;
+
 
   const clearResponseTimer = useCallback(() => {
     if (responseTimerRef.current) {
@@ -238,7 +258,32 @@ export function useChatWebSocket(
       agent_mode_updated: (d) => {
         if (d.mode) setAgentMode(d.mode);
       },
+      group_agents_updated: (d) => {
+        if (Array.isArray(d.agents)) {
+          setGroupAgents(d.agents as AgentConfig[]);
+          groupAgentRef.current?.onGroupAgentsUpdated?.(d.agents as AgentConfig[]);
+        }
+      },
+      group_agent_stream_start: (d) => {
+        groupAgentRef.current?.onGroupAgentStreamStart?.(
+          d.agentId ?? '',
+          d.agentName ?? '',
+          d.agentEmoji ?? '',
+          d.model,
+        );
+      },
+      group_agent_stream_chunk: (d) => {
+        groupAgentRef.current?.onGroupAgentStreamChunk?.(d.agentId ?? '', d.text ?? '');
+      },
+      group_agent_stream_end: (d) => {
+        groupAgentRef.current?.onGroupAgentStreamEnd?.(d.agentId ?? '', d.error);
+      },
+      group_agent_message: (d) => {
+        groupAgentRef.current?.onGroupAgentMessage?.(d as unknown as Record<string, unknown>);
+      },
     };
+
+
 
     ws.onmessage = (event: MessageEvent) => {
       try {
@@ -320,6 +365,7 @@ export function useChatWebSocket(
     authModal,
     sessionActivity,
     queuedCount,
+    groupAgents,
     send,
     reconnect,
     startAuth,

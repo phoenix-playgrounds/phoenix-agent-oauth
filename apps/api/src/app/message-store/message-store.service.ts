@@ -18,6 +18,9 @@ export interface StoredMessage {
   story?: StoredStoryEntry[];
   activityId?: string;
   model?: string;
+  agentId?: string;
+  agentName?: string;
+  agentEmoji?: string;
 }
 
 @Injectable()
@@ -42,7 +45,13 @@ export class MessageStoreService {
     return this.messages;
   }
 
-  add(role: string, body: string, imageUrls?: string[], model?: string): StoredMessage {
+  add(
+    role: string,
+    body: string,
+    imageUrls?: string[],
+    model?: string,
+    agentMeta?: { agentId: string; agentName: string; agentEmoji: string },
+  ): StoredMessage {
     const message: StoredMessage = {
       id: randomUUID(),
       role,
@@ -50,6 +59,7 @@ export class MessageStoreService {
       created_at: new Date().toISOString(),
       ...(imageUrls?.length ? { imageUrls } : {}),
       ...(model ? { model } : {}),
+      ...(agentMeta ?? {}),
     };
     this.messages.push(message);
     this.jsonWriter.schedule();
