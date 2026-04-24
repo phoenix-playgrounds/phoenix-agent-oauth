@@ -91,6 +91,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     ca-certificates \
     sqlite3 pandoc htop strace \
     imagemagick ffmpeg ghostscript \
+    poppler-utils qpdf pdfgrep mupdf-tools \
     build-essential \
     && rm -rf /var/lib/apt/lists/* \
     && ln -sf /usr/bin/fdfind /usr/local/bin/fd
@@ -202,6 +203,10 @@ RUN chmod +x /usr/local/bin/mcp-remote-wrapper
 # when the entire project root is volume-mounted (e.g. local Rails orchestration).
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+# ---- MODE HELPER (agent mode switcher) ----
+COPY mode /app/mode
+RUN chmod +x /app/mode
 
 # ---- FIBE CLI (downloaded from fibegg/sdk GitHub Releases) ----
 COPY scripts/install-fibe.sh /usr/local/bin/install-fibe.sh
